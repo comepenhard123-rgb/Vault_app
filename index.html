@@ -340,7 +340,7 @@ input:checked + .toggle-slider:before { transform:translateX(18px); }
   <!-- STOCKS PAGE -->
   <div class="page" id="page-stocks">
     <div class="page-title">Stock Market 📈</div>
-    <div class="page-sub">50 major stocks — prices updated on refresh</div>
+    <div class="page-sub" id="stocks-sub">Chargement des prix...</div>
     <div class="search-wrap">
       <svg class="search-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
       <input class="search-input" id="stock-search" placeholder="Search ticker or company..." type="text">
@@ -555,6 +555,10 @@ input:checked + .toggle-slider:before { transform:translateX(18px); }
 // ============================================================
 const SUPABASE_URL = 'https://atrbgokwbyhdcebqqxse.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF0cmJnb2t3YnloZGNlYnFxeHNlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIwMjI3NDUsImV4cCI6MjA4NzU5ODc0NX0.Rg9Z6v12Ov7n0XXd-6T-lOmw_Cw7T21Rx3MZScNCl_Q';
+// ============================================================
+// ⚠️  REMPLACE AVEC TA CLÉ ALPHA VANTAGE (gratuit sur alphavantage.co)
+// ============================================================
+const ALPHA_VANTAGE_KEY = 'C37L23U0DAEKYDFP';
 // ============================================================
 
 // ---- STATE (en premier, avant tout) ----
@@ -784,15 +788,107 @@ const STOCKS = [
 ];
 const SC = {Tech:'#5a5fcf',Finance:'#0d9f6e',Health:'#d97706',Consumer:'#dc2626',Media:'#db2777',Auto:'#ea580c',Energy:'#65a30d',Retail:'#7c3aed',Gaming:'#0891b2',Social:'#d97706',Transport:'#0d9488',Travel:'#5a5fcf',Industrial:'#64748b'};
 
-function loadStocks() {
-  // Use base prices (real market prices) with tiny variation to simulate live tick
+// ---- ALPHA VANTAGE STOCKS (real-time, all 50) ----
+// Délai 13s entre chaque appel = ~4.6 req/min (free plan safe)
+// Durée totale pour 50 actions : ~10min. Cache 15min.
+const AV_CACHE_KEY = 'vault_av_prices';
+const AV_CACHE_TTL = 15 * 60 * 1000; // 15 min
+let avFetchAbort = false;
+
+function loadStocksFromBase() {
   stocksData = STOCKS.map(s => {
-    const price = s.base * (1 + (Math.random() - 0.5) * 0.002); // ±0.1% variation only
+    const cached = stockPrices[s.symbol];
+    const price = cached || s.base * (1 + (Math.random() - 0.5) * 0.004);
     const change = (Math.random() - 0.48) * 3;
-    stockPrices[s.symbol] = price;
-    return { ...s, price, change };
+    if (!cached) stockPrices[s.symbol] = price;
+    return { ...s, price, change, isLive: !!cached };
   });
   renderStocksList(stocksData);
+}
+
+async function fetchAVQuote(symbol) {
+  const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${ALPHA_VANTAGE_KEY}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('network');
+  const data = await res.json();
+  if (data.Note || data.Information) throw new Error('rate_limit');
+  const q = data['Global Quote'];
+  if (!q || !q['05. price'] || q['05. price'] === '0.0000') throw new Error('no_data');
+  return {
+    price: parseFloat(q['05. price']),
+    change: parseFloat((q['10. change percent'] || '0%').replace('%',''))
+  };
+}
+
+function updateStocksSub(html) {
+  const el = document.getElementById('stocks-sub');
+  if (el) el.innerHTML = html;
+}
+
+async function loadStocks() {
+  // 1. Affichage immédiat
+  loadStocksFromBase();
+  avFetchAbort = false;
+
+  // 2. Cache 15min
+  try {
+    const cached = JSON.parse(localStorage.getItem(AV_CACHE_KEY) || 'null');
+    if (cached && Date.now() - cached.ts < AV_CACHE_TTL) {
+      let n = 0;
+      stocksData = stocksData.map(s => {
+        const c = cached.prices[s.symbol];
+        if (c) { stockPrices[s.symbol] = c.price; n++; return { ...s, price: c.price, change: c.change, isLive: true }; }
+        return s;
+      });
+      renderStocksList(stocksData);
+      const min = Math.round((AV_CACHE_TTL - (Date.now() - cached.ts)) / 60000);
+      updateStocksSub(`🟢 <b>${n}/50</b> prix live Alpha Vantage · <span style="color:var(--muted)">cache expire dans ${min}min</span>`);
+      return;
+    }
+  } catch(e) {}
+
+  // 3. Fetch les 50 actions une par une (13s délai)
+  const symbols = STOCKS.map(s => s.symbol);
+  const priceCache = {};
+  let fetched = 0, errors = 0;
+
+  updateStocksSub(`⏳ Chargement live Alpha Vantage… <b>0/50</b> — peut prendre ~10min`);
+
+  for (let i = 0; i < symbols.length; i++) {
+    if (avFetchAbort) break;
+    if (i > 0) await new Promise(r => setTimeout(r, 13000));
+    if (avFetchAbort) break;
+
+    const sym = symbols[i];
+    try {
+      const q = await fetchAVQuote(sym);
+      stockPrices[sym] = q.price;
+      priceCache[sym] = { price: q.price, change: q.change };
+      fetched++;
+      stocksData = stocksData.map(s => s.symbol === sym ? { ...s, price: q.price, change: q.change, isLive: true } : s);
+      renderStocksList(stocksData);
+      const remaining = symbols.length - i - 1;
+      const eta = remaining > 0 ? ` · ~${Math.ceil(remaining * 13 / 60)}min restantes` : '';
+      updateStocksSub(`⏳ Chargement live… <b>${fetched}/${symbols.length}</b>${eta}`);
+    } catch(e) {
+      errors++;
+      if (e.message === 'rate_limit') {
+        updateStocksSub(`⚠️ Rate limit Alpha Vantage — reprise dans 60s… (<b>${fetched}</b> déjà chargés)`);
+        await new Promise(r => setTimeout(r, 60000));
+        i--; // retry same symbol
+        errors = 0;
+        continue;
+      }
+    }
+  }
+
+  // 4. Sauvegarde cache
+  if (Object.keys(priceCache).length > 0) {
+    try { localStorage.setItem(AV_CACHE_KEY, JSON.stringify({ ts: Date.now(), prices: priceCache })); } catch(e) {}
+  }
+
+  const ok = Object.keys(priceCache).length;
+  updateStocksSub(`🟢 <b>${ok}/50</b> prix live Alpha Vantage${errors > 0 ? ` · ${errors} erreur(s)` : ' ✓'}`);
 }
 
 function renderStocksList(data) {
@@ -801,7 +897,8 @@ function renderStocksList(data) {
   if (!filtered.length) { document.getElementById('stocks-list').innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px;font-weight:500">No results found</div>'; return; }
   document.getElementById('stocks-list').innerHTML = filtered.map((s, i) => {
     const col = SC[s.sector] || '#5a5fcf';
-    return `<div class="coin-row"><span class="rank">${i+1}</span><div class="coin-info"><div class="coin-icon" style="background:${col}18;color:${col};font-size:9px">${s.symbol.substring(0,4)}</div><div><div class="coin-name">${s.name}</div><div class="coin-symbol">${s.symbol}</div></div></div><div class="price">$${fp(s.price)}</div><span class="change-pill ${s.change>=0?'pos':'neg'}">${s.change>=0?'+':''}${s.change.toFixed(2)}%</span><div class="mcap mcap-col" style="font-size:11px;color:var(--text3)">${s.sector}</div></div>`;
+    const liveDot = s.isLive ? '<span title="Prix live Alpha Vantage" style="display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--green);margin-left:4px;vertical-align:middle"></span>' : '';
+    return `<div class="coin-row"><span class="rank">${i+1}</span><div class="coin-info"><div class="coin-icon" style="background:${col}18;color:${col};font-size:9px">${s.symbol.substring(0,4)}</div><div><div class="coin-name">${s.name}${liveDot}</div><div class="coin-symbol">${s.symbol}</div></div></div><div class="price">$${fp(s.price)}</div><span class="change-pill ${s.change>=0?'pos':'neg'}">${s.change>=0?'+':''}${s.change.toFixed(2)}%</span><div class="mcap mcap-col" style="font-size:11px;color:var(--text3)">${s.sector}</div></div>`;
   }).join('');
 }
 document.getElementById('stock-search').addEventListener('input', () => renderStocksList(stocksData));
