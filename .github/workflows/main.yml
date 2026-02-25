@@ -47,7 +47,7 @@ jobs:
           zip -r ../../../../build/output/Vault.ipa Payload
 
       - name: Upload IPA
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Vault-IPA
           path: build/output/Vault.ipa
