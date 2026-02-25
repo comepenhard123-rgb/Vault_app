@@ -1344,19 +1344,16 @@ function sendPushNotification(title, body) {
   }
 }
 
-// ============================================================
-// PATCH renderPortfolio to include chart + news
-// ============================================================
-const _origRenderPortfolio = renderPortfolio;
-function renderPortfolio() {
-  _origRenderPortfolio();
-  setTimeout(() => { recordPortfolioSnapshot(); renderChart(); }, 300);
-}
+// PATCH renderPortfolio to include chart + news (combined into renderPortfolioWithNews below)
 
 // Patch goTo to load news/alerts on navigate
-const _origGoTo = goTo;
 function goTo(page, el) {
-  _origGoTo(page, el);
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  if (el) el.classList.add('active');
+  if (page === 'portfolio') window.renderPortfolio();
+  if (page === 'indices') renderIndices();
   if (page === 'news') { if (!allNews.length) loadNews(); else renderNews(); }
   if (page === 'alerts') renderAlerts();
 }
