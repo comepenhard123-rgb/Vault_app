@@ -272,7 +272,42 @@ input:checked + .toggle-slider:before { transform:translateX(18px); }
 .portfolio-new-btn:hover { background:var(--accent-light); border-color:var(--accent); }
 .portfolio-delete-btn { width:38px; height:38px; border-radius:11px; border:1.5px solid #fed7d7; background:var(--red-light); display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--red); font-size:16px; flex-shrink:0; box-shadow:var(--shadow); transition:.2s; }
 
-/* METAMASK BUTTON */
+/* DASHBOARD */
+.dashboard-hero { background:linear-gradient(135deg,#1a1c3a 0%,#2d1b69 100%); border-radius:20px; padding:20px; margin-bottom:16px; color:#fff; }
+.dashboard-date { font-size:11px; opacity:.6; font-weight:600; text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
+.dashboard-title { font-size:20px; font-weight:800; margin-bottom:4px; }
+.dashboard-sub { font-size:12px; opacity:.7; }
+.signal-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px; }
+.signal-card { background:var(--white); border-radius:14px; border:1.5px solid var(--border); padding:14px; box-shadow:var(--shadow); }
+.signal-label { font-size:10px; font-weight:700; color:var(--text3); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
+.signal-value { font-size:18px; font-weight:800; color:var(--text); font-family:'DM Mono',monospace; }
+.signal-sub { font-size:11px; color:var(--text3); margin-top:3px; }
+.signal-card.green { border-color:#a7f3d0; background:#f0fdf9; }
+.signal-card.red { border-color:#fed7d7; background:#fff5f5; }
+.signal-card.orange { border-color:#fed7aa; background:#fff7ed; }
+.signal-card.purple { border-color:#e9d5ff; background:#faf5ff; }
+.watch-section { margin-bottom:16px; }
+.watch-title { font-size:13px; font-weight:800; color:var(--text); margin-bottom:10px; display:flex; align-items:center; gap:6px; }
+.watch-item { background:var(--white); border-radius:12px; border:1.5px solid var(--border); padding:12px 14px; margin-bottom:8px; display:flex; align-items:center; gap:12px; box-shadow:var(--shadow); }
+.watch-icon { font-size:18px; flex-shrink:0; }
+.watch-info { flex:1; }
+.watch-text { font-size:13px; font-weight:700; color:var(--text); }
+.watch-detail { font-size:11px; color:var(--text3); margin-top:2px; }
+.watch-badge { font-size:10px; font-weight:700; padding:3px 8px; border-radius:6px; flex-shrink:0; }
+.watch-badge.warn { background:#fef9c3; color:#854d0e; }
+.watch-badge.danger { background:#fee2e2; color:#991b1b; }
+.watch-badge.ok { background:#dcfce7; color:#166534; }
+.watch-badge.info { background:var(--accent-light); color:var(--accent); }
+
+/* SMART ALERTS */
+.smart-alert-tabs { display:flex; gap:8px; margin-bottom:14px; }
+.smart-tab { flex:1; padding:9px; border-radius:10px; border:1.5px solid var(--border); background:var(--white); font-family:'Inter',sans-serif; font-size:12px; font-weight:700; color:var(--text3); cursor:pointer; text-align:center; transition:.2s; }
+.smart-tab.active { border-color:var(--accent); color:var(--accent); background:var(--accent-light); }
+.smart-alert-form { background:var(--white); border-radius:16px; border:1.5px solid var(--border); padding:16px; margin-bottom:14px; box-shadow:var(--shadow); }
+.smart-type-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:14px; }
+.smart-type-btn { padding:10px 8px; border-radius:10px; border:1.5px solid var(--border); background:var(--white); font-family:'Inter',sans-serif; font-size:11px; font-weight:700; color:var(--text3); cursor:pointer; text-align:center; transition:.2s; }
+.smart-type-btn.selected { border-color:var(--accent); color:var(--accent); background:var(--accent-light); }
+
 .metamask-btn { width:100%; padding:13px; border:2px solid #f6851b; background:#fff8f3; color:#f6851b; border-radius:14px; font-family:'Inter',sans-serif; font-size:14px; font-weight:700; cursor:pointer; transition:.2s; margin-top:4px; display:flex; align-items:center; justify-content:center; gap:8px; }
 .metamask-btn:hover { background:#f6851b; color:#fff; }
 .metamask-btn.connected { border-color:var(--green); background:var(--green-light); color:var(--green); }
@@ -476,40 +511,127 @@ input:checked + .toggle-slider:before { transform:translateX(18px); }
     <div id="news-list"><div class="loading"><div class="spinner"></div><p>Loading latest news...</p></div></div>
   </div>
 
-  <!-- ALERTS PAGE -->
-  <div class="page" id="page-alerts">
-    <div class="page-title">Price Alerts 🔔</div>
-    <div class="page-sub">Get notified when your targets are hit</div>
-    <div class="add-alert-form">
-      <h4>New Alert</h4>
-      <div class="form-group">
-        <label style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;display:block;">Asset</label>
-        <input class="form-input" id="alert-asset-input" placeholder="Search BTC, ETH, AAPL..." oninput="handleAlertSearch()" autocomplete="off">
-        <div class="autocomplete-list" id="alert-autocomplete"></div>
-      </div>
-      <div class="alert-form-row">
-        <div class="form-group" style="margin-bottom:0">
-          <label style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;display:block;">Condition</label>
-          <select class="form-select" id="alert-condition">
-            <option value="above">Price goes above</option>
-            <option value="below">Price goes below</option>
-          </select>
-        </div>
-        <div class="form-group" style="margin-bottom:0">
-          <label style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;display:block;">Target Price ($)</label>
-          <input class="form-input" id="alert-price" type="number" step="any" placeholder="e.g. 100000">
-        </div>
-      </div>
-      <button class="btn-primary" style="width:100%;margin-top:12px;" onclick="addAlert()">Add Alert 🔔</button>
+  <!-- DASHBOARD PAGE -->
+  <div class="page" id="page-dashboard">
+    <div class="dashboard-hero">
+      <div class="dashboard-date" id="dash-date">—</div>
+      <div class="dashboard-title">Ce qu'il faut surveiller 🎯</div>
+      <div class="dashboard-sub" id="dash-sub">Analyse de ton portfolio en temps réel</div>
     </div>
-    <div id="alerts-list"></div>
-    <div id="alerts-empty" style="display:none;text-align:center;padding:40px 24px;color:var(--muted)">
-      <div style="font-size:40px;margin-bottom:12px">🔔</div>
-      <div style="font-size:14px;font-weight:600;color:var(--text2)">No alerts yet</div>
-      <div style="font-size:12px;margin-top:4px">Add your first price alert above</div>
+
+    <!-- Signal cards -->
+    <div class="signal-grid" id="dash-signals">
+      <div class="signal-card"><div class="signal-label">Portfolio</div><div class="signal-value" id="dash-pf-val">—</div><div class="signal-sub" id="dash-pf-pnl">chargement...</div></div>
+      <div class="signal-card"><div class="signal-label">Fear & Greed</div><div class="signal-value" id="dash-fg">—</div><div class="signal-sub" id="dash-fg-sub">—</div></div>
+      <div class="signal-card"><div class="signal-label">BTC Dominance</div><div class="signal-value" id="dash-dom">—</div><div class="signal-sub" id="dash-dom-sub">—</div></div>
+      <div class="signal-card"><div class="signal-label">Marché global</div><div class="signal-value" id="dash-mktcap">—</div><div class="signal-sub" id="dash-mktcap-sub">—</div></div>
+    </div>
+
+    <!-- What to watch -->
+    <div class="watch-section">
+      <div class="watch-title">⚠️ Signaux actifs</div>
+      <div id="dash-signals-list"><div class="loading"><div class="spinner"></div><p>Analyse en cours...</p></div></div>
+    </div>
+
+    <!-- Portfolio breakdown -->
+    <div class="watch-section">
+      <div class="watch-title">📊 Ton portfolio</div>
+      <div id="dash-portfolio-breakdown"><div style="padding:16px;text-align:center;color:var(--muted);font-size:13px">Ajoute des assets pour voir l'analyse</div></div>
+    </div>
+
+    <!-- Opportunities -->
+    <div class="watch-section">
+      <div class="watch-title">💡 Opportunités détectées</div>
+      <div id="dash-opportunities"><div class="loading"><div class="spinner"></div><p>Scan en cours...</p></div></div>
     </div>
   </div>
 
+  <!-- ALERTS PAGE (updated with smart alerts) -->
+  <div class="page" id="page-alerts">
+    <div class="page-title">Alertes 🔔</div>
+    <div class="page-sub">Prix + alertes intelligentes sur ton portfolio</div>
+
+    <!-- Tabs -->
+    <div class="smart-alert-tabs">
+      <button class="smart-tab active" onclick="switchAlertTab('price', this)">💰 Prix</button>
+      <button class="smart-tab" onclick="switchAlertTab('smart', this)">🧠 Intelligentes</button>
+    </div>
+
+    <!-- PRICE ALERTS TAB -->
+    <div id="alert-tab-price">
+      <div class="add-alert-form">
+        <h4>Nouvelle alerte prix</h4>
+        <div class="form-group">
+          <label style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;display:block;">Asset</label>
+          <input class="form-input" id="alert-asset-input" placeholder="Cherche BTC, ETH, AAPL..." oninput="handleAlertSearch()" autocomplete="off">
+          <div class="autocomplete-list" id="alert-autocomplete"></div>
+        </div>
+        <div class="alert-form-row">
+          <div class="form-group" style="margin-bottom:0">
+            <label style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;display:block;">Condition</label>
+            <select class="form-select" id="alert-condition">
+              <option value="above">Prix dépasse</option>
+              <option value="below">Prix descend sous</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;display:block;">Prix cible ($)</label>
+            <input class="form-input" id="alert-price" type="number" step="any" placeholder="ex: 100000">
+          </div>
+        </div>
+        <button class="btn-primary" style="width:100%;margin-top:12px;" onclick="addAlert()">Ajouter l'alerte 🔔</button>
+      </div>
+      <div id="alerts-list"></div>
+      <div id="alerts-empty" style="display:none;text-align:center;padding:40px 24px;color:var(--muted)">
+        <div style="font-size:40px;margin-bottom:12px">🔔</div>
+        <div style="font-size:14px;font-weight:600;color:var(--text2)">Aucune alerte</div>
+        <div style="font-size:12px;margin-top:4px">Ajoute ta première alerte de prix ci-dessus</div>
+      </div>
+    </div>
+
+    <!-- SMART ALERTS TAB -->
+    <div id="alert-tab-smart" style="display:none">
+      <div class="smart-alert-form">
+        <h4 style="font-size:14px;font-weight:700;margin-bottom:14px">Choisir le type d'alerte</h4>
+        <div class="smart-type-grid">
+          <button class="smart-type-btn selected" onclick="selectSmartType('drawdown',this)">📉 Drawdown<br><span style="font-weight:400;font-size:10px">Perte depuis ATH</span></button>
+          <button class="smart-type-btn" onclick="selectSmartType('dominance',this)">🌐 BTC Dominance<br><span style="font-weight:400;font-size:10px">Changement dominant</span></button>
+          <button class="smart-type-btn" onclick="selectSmartType('volume',this)">📊 Volume x3<br><span style="font-weight:400;font-size:10px">Volume anormal</span></button>
+          <button class="smart-type-btn" onclick="selectSmartType('concentration',this)">⚖️ Concentration<br><span style="font-weight:400;font-size:10px">Asset trop dominant</span></button>
+          <button class="smart-type-btn" onclick="selectSmartType('pnl',this)">💸 P&L cible<br><span style="font-weight:400;font-size:10px">+/- % de gain/perte</span></button>
+          <button class="smart-type-btn" onclick="selectSmartType('feargreed',this)">😱 Fear & Greed<br><span style="font-weight:400;font-size:10px">Indice extrême</span></button>
+        </div>
+
+        <!-- Dynamic config based on type -->
+        <div id="smart-alert-config">
+          <div class="form-group">
+            <label style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;display:block;">Asset (optionnel)</label>
+            <input class="form-input" id="smart-asset-input" placeholder="Laisser vide = tout le portfolio" oninput="handleSmartAssetSearch()" autocomplete="off">
+            <div class="autocomplete-list" id="smart-autocomplete"></div>
+          </div>
+          <div class="form-group" id="smart-threshold-group">
+            <label style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;display:block;" id="smart-threshold-label">Drawdown seuil (%)</label>
+            <input class="form-input" id="smart-threshold" type="number" step="1" placeholder="ex: 20" value="20">
+          </div>
+          <div class="form-group">
+            <label style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;display:block;">Condition</label>
+            <select class="form-select" id="smart-condition">
+              <option value="above">Dépasse le seuil</option>
+              <option value="below">Descend sous le seuil</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn-primary" style="width:100%;margin-top:4px;" onclick="addSmartAlert()">Créer l'alerte intelligente 🧠</button>
+      </div>
+
+      <div id="smart-alerts-list"></div>
+      <div id="smart-alerts-empty" style="display:none;text-align:center;padding:32px 24px;color:var(--muted)">
+        <div style="font-size:36px;margin-bottom:10px">🧠</div>
+        <div style="font-size:14px;font-weight:600;color:var(--text2)">Aucune alerte intelligente</div>
+        <div style="font-size:12px;margin-top:4px">Configure une alerte basée sur ton portfolio</div>
+      </div>
+    </div>
+  </div>
 
   <nav class="bottom-nav">
     <button class="nav-item active" onclick="goTo('crypto',this)">
@@ -524,13 +646,17 @@ input:checked + .toggle-slider:before { transform:translateX(18px); }
       <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
       <span>Portfolio</span>
     </button>
+    <button class="nav-item" onclick="goTo('dashboard',this)" id="nav-dashboard">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      <span>Dashboard</span>
+    </button>
     <button class="nav-item" onclick="goTo('news',this)">
       <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8M15 18h-5M10 6h8v4h-8V6Z"/></svg>
       <span>News</span>
     </button>
     <button class="nav-item" onclick="goTo('alerts',this)" id="nav-alerts">
       <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-      <span>Alerts</span>
+      <span>Alertes</span>
     </button>
     <button class="nav-item" onclick="goTo('settings',this)">
       <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -714,7 +840,8 @@ function goTo(page, el) {
 async function refreshAll() {
   const btn = document.getElementById('refresh-btn');
   btn.classList.add('spinning');
-  await Promise.all([loadCrypto(), loadStocks()]);
+  await loadCrypto(); // On attend juste le crypto (rapide)
+  loadStocks(); // Stocks en arrière-plan sans bloquer
   if (document.getElementById('page-portfolio').classList.contains('active')) renderPortfolio();
   if (document.getElementById('page-indices').classList.contains('active')) renderIndices();
   btn.classList.remove('spinning');
@@ -1460,15 +1587,22 @@ function renderAlerts() {
   if (!alerts.length) { list.innerHTML = ''; empty.style.display = 'block'; return; }
   empty.style.display = 'none';
   const col = a => a.type === 'crypto' ? getCoinColor(a.symbol) : (SC[stocksData.find(s => s.symbol === a.symbol.toUpperCase())?.sector] || '#5a5fcf');
-  list.innerHTML = alerts.map(a => `
-    <div class="alert-card ${a.triggered ? 'alert-triggered' : ''}" id="alert-${a.id}">
+  list.innerHTML = alerts.map((a, idx) => `
+    <div class="alert-card ${a.triggered ? 'alert-triggered' : ''}" id="alert-${idx}">
       <div class="alert-icon" style="background:${col(a)}18;color:${col(a)}">${a.symbol.substring(0,3).toUpperCase()}</div>
       <div class="alert-info">
         <div class="alert-name">${a.name} <span style="font-size:10px;padding:2px 7px;border-radius:6px;background:${a.triggered?'#dcfce7':'var(--accent-light)'};color:${a.triggered?'#15803d':'var(--accent)'};font-weight:700;margin-left:4px">${a.triggered ? '✓ Triggered' : 'Active'}</span></div>
         <div class="alert-condition">${a.condition === 'above' ? '↑ Above' : '↓ Below'} $${fp(a.targetPrice)} · now $${fp(a.type === 'crypto' ? (cryptoPrices[a.symbol] || a.currentPrice) : (stockPrices[a.symbol] || a.currentPrice))}</div>
       </div>
-      <button class="alert-delete" onclick="deleteAlert(${a.id})">×</button>
+      <button class="alert-delete" data-idx="${idx}" onclick="deleteAlertByIdx(this)">×</button>
     </div>`).join('');
+}
+
+function deleteAlertByIdx(btn) {
+  const idx = parseInt(btn.getAttribute('data-idx'));
+  alerts.splice(idx, 1);
+  saveAlerts();
+  renderAlerts();
 }
 
 function checkAlerts() {
@@ -1518,7 +1652,8 @@ function goTo(page, el) {
   if (page === 'portfolio') window.renderPortfolio();
   if (page === 'indices') renderIndices();
   if (page === 'news') { loadNews(); } // Toujours recharger les vraies news
-  if (page === 'alerts') renderAlerts();
+  if (page === 'alerts') { renderAlerts(); renderSmartAlerts(); }
+  if (page === 'dashboard') { renderDashboard(); }
 }
 
 // ============================================================
@@ -1802,7 +1937,307 @@ async function connectMetaMaskToPortfolio() {
   }
 }
 
-// Init portfolios after app loads — appelé aussi depuis showApp après chargement cloud
+// ============================================================
+// DASHBOARD ACTIONABLE
+// ============================================================
+async function renderDashboard() {
+  // Date
+  const now = new Date();
+  document.getElementById('dash-date').textContent = now.toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long' });
+
+  // Portfolio values
+  const total = portfolio.reduce((s, a) => {
+    const p = a.type === 'crypto' ? (cryptoPrices[a.symbol.toLowerCase()] || cryptoPrices[a.id] || a.buyPrice) : (stockPrices[a.symbol] || a.buyPrice);
+    return s + p * a.qty;
+  }, 0);
+  const cost = portfolio.reduce((s, a) => s + a.buyPrice * a.qty, 0);
+  const pnl = total - cost;
+  const pnlPct = cost > 0 ? (pnl / cost * 100) : 0;
+
+  const pfCard = document.getElementById('dash-pf-val');
+  pfCard.textContent = '$' + fp(total);
+  pfCard.parentElement.className = 'signal-card ' + (pnl >= 0 ? 'green' : 'red');
+  document.getElementById('dash-pf-pnl').textContent = (pnl >= 0 ? '+' : '') + fp(pnl) + ' (' + (pnlPct >= 0 ? '+' : '') + pnlPct.toFixed(1) + '%)';
+
+  // Fear & Greed + BTC dominance from CoinGecko global
+  try {
+    const [fgRes, globalRes] = await Promise.all([
+      fetch('https://api.alternative.me/fng/'),
+      fetch('https://api.coingecko.com/api/v3/global')
+    ]);
+    const fgData = await fgRes.json();
+    const globalData = await globalRes.json();
+
+    const fgVal = parseInt(fgData.data[0].value);
+    const fgClass = fgVal < 25 ? 'red' : fgVal < 45 ? 'orange' : fgVal < 75 ? 'green' : 'orange';
+    document.getElementById('dash-fg').textContent = fgVal;
+    document.getElementById('dash-fg').parentElement.className = 'signal-card ' + fgClass;
+    document.getElementById('dash-fg-sub').textContent = fgData.data[0].value_classification;
+
+    const dom = globalData.data.market_cap_percentage?.btc?.toFixed(1) || '—';
+    const domCard = document.getElementById('dash-dom');
+    domCard.textContent = dom + '%';
+    domCard.parentElement.className = 'signal-card ' + (parseFloat(dom) > 55 ? 'orange' : 'purple');
+    document.getElementById('dash-dom-sub').textContent = parseFloat(dom) > 55 ? 'BTC dominant — altcoins sous pression' : 'Altseason possible';
+
+    const mcap = globalData.data.total_market_cap?.usd || 0;
+    const mcapChange = globalData.data.market_cap_change_percentage_24h_usd || 0;
+    document.getElementById('dash-mktcap').textContent = mcap > 1e12 ? (mcap/1e12).toFixed(2)+'T' : (mcap/1e9).toFixed(0)+'B';
+    document.getElementById('dash-mktcap').parentElement.className = 'signal-card ' + (mcapChange >= 0 ? 'green' : 'red');
+    document.getElementById('dash-mktcap-sub').textContent = (mcapChange >= 0 ? '▲' : '▼') + Math.abs(mcapChange).toFixed(1) + '% sur 24h';
+
+    // Build signals
+    const signals = [];
+
+    // Fear & Greed signal
+    if (fgVal <= 20) signals.push({ icon: '😱', text: 'Extreme Fear détecté', detail: 'Historiquement une opportunité d\'achat. Sois vigilant.', badge: 'danger', badgeTxt: 'Extreme Fear' });
+    else if (fgVal >= 80) signals.push({ icon: '🤑', text: 'Extreme Greed — marché surchauffé', detail: 'Risque de correction. Considère sécuriser des profits.', badge: 'warn', badgeTxt: 'Extreme Greed' });
+
+    // BTC dominance signal
+    if (parseFloat(dom) > 60) signals.push({ icon: '👑', text: 'BTC très dominant (' + dom + '%)', detail: 'Les altcoins sous-performent. Reste sur BTC/ETH.', badge: 'warn', badgeTxt: 'BTC Saison' });
+    else if (parseFloat(dom) < 45) signals.push({ icon: '🚀', text: 'BTC dominance faible (' + dom + '%)', detail: 'Potentiel altseason. Surveille les altcoins.', badge: 'info', badgeTxt: 'Alt Saison' });
+
+    // Portfolio signals
+    if (portfolio.length > 0) {
+      // Concentration
+      const assetValues = portfolio.map(a => {
+        const p = a.type === 'crypto' ? (cryptoPrices[a.symbol.toLowerCase()] || a.buyPrice) : (stockPrices[a.symbol] || a.buyPrice);
+        return { name: a.name, symbol: a.symbol, val: p * a.qty };
+      }).sort((a,b) => b.val - a.val);
+      if (total > 0) {
+        const topPct = (assetValues[0].val / total * 100);
+        if (topPct > 60) signals.push({ icon: '⚖️', text: `${assetValues[0].symbol.toUpperCase()} = ${topPct.toFixed(0)}% du portfolio`, detail: 'Surconcentration détectée. Diversifie pour réduire le risque.', badge: 'warn', badgeTxt: 'Concentration' });
+      }
+
+      // Big movers
+      cryptoData.forEach(c => {
+        const inPortfolio = portfolio.find(a => a.id === c.id || a.symbol.toLowerCase() === c.symbol.toLowerCase());
+        if (inPortfolio && Math.abs(c.price_change_percentage_24h) >= 10) {
+          signals.push({ icon: c.price_change_percentage_24h > 0 ? '🚀' : '📉', text: `${c.name} ${c.price_change_percentage_24h > 0 ? '+' : ''}${c.price_change_percentage_24h.toFixed(1)}% aujourd'hui`, detail: `Dans ton portfolio — prix actuel $${fp(c.current_price)}`, badge: c.price_change_percentage_24h > 0 ? 'ok' : 'danger', badgeTxt: c.price_change_percentage_24h > 0 ? 'Hausse' : 'Chute' });
+        }
+      });
+
+      // Drawdown
+      portfolio.forEach(a => {
+        const currentP = a.type === 'crypto' ? (cryptoPrices[a.symbol.toLowerCase()] || a.buyPrice) : (stockPrices[a.symbol] || a.buyPrice);
+        const dd = ((currentP - a.buyPrice) / a.buyPrice * 100);
+        if (dd <= -25) signals.push({ icon: '🩸', text: `${a.symbol.toUpperCase()} en drawdown de ${dd.toFixed(0)}%`, detail: `Acheté à $${fp(a.buyPrice)}, maintenant $${fp(currentP)}`, badge: 'danger', badgeTxt: 'Drawdown' });
+      });
+    }
+
+    // Market change
+    if (Math.abs(mcapChange) >= 5) signals.push({ icon: mcapChange > 0 ? '📈' : '📉', text: `Marché global ${mcapChange > 0 ? '+' : ''}${mcapChange.toFixed(1)}% en 24h`, detail: 'Mouvement important sur l\'ensemble du marché.', badge: mcapChange > 0 ? 'ok' : 'danger', badgeTxt: mcapChange > 0 ? 'Haussier' : 'Baissier' });
+
+    const signalEl = document.getElementById('dash-signals-list');
+    if (signals.length === 0) {
+      signalEl.innerHTML = '<div class="watch-item"><div class="watch-icon">✅</div><div class="watch-info"><div class="watch-text">Aucun signal particulier</div><div class="watch-detail">Le marché est calme. Surveille tes alertes.</div></div><span class="watch-badge ok">OK</span></div>';
+    } else {
+      signalEl.innerHTML = signals.map(s => `<div class="watch-item"><div class="watch-icon">${s.icon}</div><div class="watch-info"><div class="watch-text">${s.text}</div><div class="watch-detail">${s.detail}</div></div><span class="watch-badge ${s.badge}">${s.badgeTxt}</span></div>`).join('');
+    }
+
+    // Portfolio breakdown
+    renderDashPortfolio(total);
+
+    // Opportunities
+    renderDashOpportunities(fgVal, parseFloat(dom), mcapChange);
+
+    document.getElementById('dash-sub').textContent = 'Mis à jour à ' + now.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
+
+  } catch(e) {
+    document.getElementById('dash-signals-list').innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted);font-size:13px">❌ Erreur de chargement des données marché</div>';
+  }
+}
+
+function renderDashPortfolio(total) {
+  const el = document.getElementById('dash-portfolio-breakdown');
+  if (!portfolio.length) { el.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted);font-size:13px">Ajoute des assets pour voir l\'analyse</div>'; return; }
+
+  const assets = portfolio.map(a => {
+    const p = a.type === 'crypto' ? (cryptoPrices[a.symbol.toLowerCase()] || cryptoPrices[a.id] || a.buyPrice) : (stockPrices[a.symbol] || a.buyPrice);
+    const val = p * a.qty;
+    const pnl = ((p - a.buyPrice) / a.buyPrice * 100);
+    return { ...a, currentPrice: p, val, pnl };
+  }).sort((a,b) => b.val - a.val);
+
+  el.innerHTML = assets.map(a => {
+    const pct = total > 0 ? (a.val / total * 100) : 0;
+    const col = a.type === 'crypto' ? getCoinColor(a.symbol) : '#5a5fcf';
+    return `<div class="watch-item">
+      <div style="width:34px;height:34px;border-radius:50%;background:${col}18;color:${col};font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${a.symbol.substring(0,3).toUpperCase()}</div>
+      <div class="watch-info">
+        <div class="watch-text">${a.name} <span style="font-size:11px;color:var(--text3);font-weight:500">${pct.toFixed(1)}% du portfolio</span></div>
+        <div style="margin-top:4px;background:var(--surface2);border-radius:4px;height:4px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${col};border-radius:4px"></div></div>
+      </div>
+      <span class="watch-badge ${a.pnl >= 0 ? 'ok' : 'danger'}">${a.pnl >= 0 ? '+' : ''}${a.pnl.toFixed(1)}%</span>
+    </div>`;
+  }).join('');
+}
+
+function renderDashOpportunities(fgVal, dom, mcapChange) {
+  const el = document.getElementById('dash-opportunities');
+  const ops = [];
+
+  if (fgVal <= 30) ops.push({ icon: '💎', text: 'Zone de Fear — opportunité d\'accumulation', detail: 'Historiquement les meilleurs points d\'entrée se font dans la peur.', badge: 'info', badgeTxt: 'DCA' });
+  if (dom < 48 && dom > 0) ops.push({ icon: '🌊', text: 'Altseason possible — surveille ETH, SOL, BNB', detail: 'BTC dominance faible = rotation vers les altcoins.', badge: 'info', badgeTxt: 'Alts' });
+  if (mcapChange < -5) ops.push({ icon: '🛒', text: 'Correction du marché — point d\'entrée potentiel', detail: 'Le marché a baissé de ' + Math.abs(mcapChange).toFixed(1) + '%. Considère un DCA progressif.', badge: 'info', badgeTxt: 'Entrée' });
+
+  // Check portfolio for underperforming assets
+  portfolio.forEach(a => {
+    const p = a.type === 'crypto' ? (cryptoPrices[a.symbol.toLowerCase()] || a.buyPrice) : (stockPrices[a.symbol] || a.buyPrice);
+    const pnl = ((p - a.buyPrice) / a.buyPrice * 100);
+    if (pnl >= 50) ops.push({ icon: '💰', text: `${a.symbol.toUpperCase()} +${pnl.toFixed(0)}% — prendre des profits ?`, detail: 'Asset très performant. Considère sécuriser une partie.', badge: 'warn', badgeTxt: 'Profits' });
+  });
+
+  if (!ops.length) ops.push({ icon: '👀', text: 'Marché neutre — attends un signal clair', detail: 'Pas d\'opportunité évidente. Surveille Fear & Greed et la dominance.', badge: 'info', badgeTxt: 'Attente' });
+
+  el.innerHTML = ops.map(o => `<div class="watch-item"><div class="watch-icon">${o.icon}</div><div class="watch-info"><div class="watch-text">${o.text}</div><div class="watch-detail">${o.detail}</div></div><span class="watch-badge ${o.badge}">${o.badgeTxt}</span></div>`).join('');
+}
+
+// ============================================================
+// SMART ALERTS
+// ============================================================
+let smartAlerts = JSON.parse(localStorage.getItem('vault_smart_alerts') || '[]');
+let selectedSmartType = 'drawdown';
+let smartSelectedAsset = null;
+
+function switchAlertTab(tab, el) {
+  document.querySelectorAll('.smart-tab').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('alert-tab-price').style.display = tab === 'price' ? 'block' : 'none';
+  document.getElementById('alert-tab-smart').style.display = tab === 'smart' ? 'block' : 'none';
+}
+
+function selectSmartType(type, el) {
+  selectedSmartType = type;
+  document.querySelectorAll('.smart-type-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+
+  const labels = { drawdown:'Drawdown seuil (%)', dominance:'BTC Dominance seuil (%)', volume:'Multiplicateur volume', concentration:'Concentration max (%)', pnl:'P&L cible (%)', feargreed:'Fear & Greed seuil (0-100)' };
+  const defaults = { drawdown:'20', dominance:'60', volume:'3', concentration:'50', pnl:'50', feargreed:'20' };
+  document.getElementById('smart-threshold-label').textContent = labels[type] || 'Seuil';
+  document.getElementById('smart-threshold').value = defaults[type] || '20';
+  document.getElementById('smart-threshold').placeholder = 'ex: ' + defaults[type];
+
+  // Hide asset input for global metrics
+  const hideAsset = ['dominance', 'feargreed'].includes(type);
+  document.getElementById('smart-asset-input').closest('.form-group').style.display = hideAsset ? 'none' : 'block';
+}
+
+function handleSmartAssetSearch() {
+  const q = document.getElementById('smart-asset-input').value.toLowerCase().trim();
+  const list = document.getElementById('smart-autocomplete');
+  if (!q) { list.classList.remove('open'); return; }
+  const res = [...cryptoData.filter(c => c.name.toLowerCase().includes(q) || c.symbol.toLowerCase().includes(q)).slice(0, 4).map(c => ({ label: c.symbol.toUpperCase(), name: c.name, type: 'crypto', id: c.id, symbol: c.symbol })),
+               ...stocksData.filter(s => s.name.toLowerCase().includes(q) || s.symbol.toLowerCase().includes(q)).slice(0, 3).map(s => ({ label: s.symbol, name: s.name, type: 'stock', id: s.symbol, symbol: s.symbol }))].slice(0, 5);
+  list.innerHTML = res.length ? res.map(r => `<div class="autocomplete-item" onclick="selectSmartAsset('${r.id}','${r.type}','${r.symbol}','${r.name}')"><span class="ac-symbol">${r.label}</span><span class="ac-name">${r.name}</span></div>`).join('') : '<div class="autocomplete-item" style="color:var(--muted)">Aucun résultat</div>';
+  list.classList.add('open');
+}
+
+function selectSmartAsset(id, type, symbol, name) {
+  smartSelectedAsset = { id, type, symbol, name };
+  document.getElementById('smart-asset-input').value = name + ' (' + symbol.toUpperCase() + ')';
+  document.getElementById('smart-autocomplete').classList.remove('open');
+}
+
+function addSmartAlert() {
+  const threshold = parseFloat(document.getElementById('smart-threshold').value);
+  if (isNaN(threshold)) { showToast('Entre un seuil valide'); return; }
+  const condition = document.getElementById('smart-condition').value;
+
+  const typeLabels = { drawdown:'Drawdown', dominance:'BTC Dominance', volume:'Volume x3', concentration:'Concentration', pnl:'P&L', feargreed:'Fear & Greed' };
+  const typeIcons = { drawdown:'📉', dominance:'🌐', volume:'📊', concentration:'⚖️', pnl:'💸', feargreed:'😱' };
+
+  smartAlerts.push({
+    id: Date.now(),
+    type: selectedSmartType,
+    label: typeLabels[selectedSmartType],
+    icon: typeIcons[selectedSmartType],
+    asset: smartSelectedAsset,
+    threshold,
+    condition,
+    triggered: false,
+    createdAt: new Date().toISOString()
+  });
+  localStorage.setItem('vault_smart_alerts', JSON.stringify(smartAlerts));
+  renderSmartAlerts();
+  showToast('Alerte intelligente créée 🧠');
+  document.getElementById('smart-asset-input').value = '';
+  smartSelectedAsset = null;
+}
+
+function deleteSmartAlert(btn) {
+  const idx = parseInt(btn.getAttribute('data-idx'));
+  smartAlerts.splice(idx, 1);
+  localStorage.setItem('vault_smart_alerts', JSON.stringify(smartAlerts));
+  renderSmartAlerts();
+}
+
+function renderSmartAlerts() {
+  const list = document.getElementById('smart-alerts-list');
+  const empty = document.getElementById('smart-alerts-empty');
+  if (!list) return;
+  if (!smartAlerts.length) { list.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  list.innerHTML = smartAlerts.map((a, idx) => `
+    <div class="alert-card ${a.triggered ? 'alert-triggered' : ''}">
+      <div class="alert-icon" style="background:var(--accent-light);color:var(--accent);font-size:16px">${a.icon}</div>
+      <div class="alert-info">
+        <div class="alert-name">${a.label}${a.asset ? ' — ' + a.asset.symbol.toUpperCase() : ' (global)'} <span style="font-size:10px;padding:2px 7px;border-radius:6px;background:${a.triggered?'#dcfce7':'var(--accent-light)'};color:${a.triggered?'#15803d':'var(--accent)'};font-weight:700;margin-left:4px">${a.triggered ? '✓ Déclenché' : 'Actif'}</span></div>
+        <div class="alert-condition">${a.condition === 'above' ? '↑ Dépasse' : '↓ Descend sous'} ${a.threshold}${['dominance','concentration','pnl','feargreed'].includes(a.type) ? '%' : a.type === 'volume' ? 'x' : '%'}</div>
+      </div>
+      <button class="alert-delete" data-idx="${idx}" onclick="deleteSmartAlert(this)">×</button>
+    </div>`).join('');
+}
+
+function checkSmartAlerts() {
+  let changed = false;
+  smartAlerts.forEach(a => {
+    if (a.triggered) return;
+    let currentVal = null;
+
+    if (a.type === 'drawdown' && a.asset) {
+      const p = a.asset.type === 'crypto' ? cryptoPrices[a.asset.symbol.toLowerCase()] : stockPrices[a.asset.symbol];
+      const portfolioAsset = portfolio.find(pa => pa.symbol.toLowerCase() === a.asset.symbol.toLowerCase());
+      if (p && portfolioAsset) currentVal = Math.abs((p - portfolioAsset.buyPrice) / portfolioAsset.buyPrice * 100);
+    } else if (a.type === 'pnl' && a.asset) {
+      const p = a.asset.type === 'crypto' ? cryptoPrices[a.asset.symbol.toLowerCase()] : stockPrices[a.asset.symbol];
+      const portfolioAsset = portfolio.find(pa => pa.symbol.toLowerCase() === a.asset.symbol.toLowerCase());
+      if (p && portfolioAsset) currentVal = (p - portfolioAsset.buyPrice) / portfolioAsset.buyPrice * 100;
+    } else if (a.type === 'concentration') {
+      const total = portfolio.reduce((s, pa) => {
+        const p2 = pa.type === 'crypto' ? (cryptoPrices[pa.symbol.toLowerCase()] || pa.buyPrice) : (stockPrices[pa.symbol] || pa.buyPrice);
+        return s + p2 * pa.qty;
+      }, 0);
+      if (total > 0 && a.asset) {
+        const pa = portfolio.find(pa2 => pa2.symbol.toLowerCase() === a.asset.symbol.toLowerCase());
+        if (pa) {
+          const p2 = pa.type === 'crypto' ? (cryptoPrices[pa.symbol.toLowerCase()] || pa.buyPrice) : (stockPrices[pa.symbol] || pa.buyPrice);
+          currentVal = p2 * pa.qty / total * 100;
+        }
+      }
+    }
+
+    if (currentVal === null) return;
+    const hit = (a.condition === 'above' && currentVal >= a.threshold) || (a.condition === 'below' && currentVal <= a.threshold);
+    if (hit) {
+      a.triggered = true; changed = true;
+      const msg = `🧠 Alerte ${a.label}: ${currentVal.toFixed(1)}% ${a.condition === 'above' ? '>' : '<'} ${a.threshold}%`;
+      showToast(msg);
+      sendPushNotification('Alerte intelligente', msg);
+    }
+  });
+  if (changed) { localStorage.setItem('vault_smart_alerts', JSON.stringify(smartAlerts)); renderSmartAlerts(); }
+}
+
+// Hook smart alert checks into main check loop
+const _origCheckAlerts = checkAlerts;
+window.checkAlerts = function() { _origCheckAlerts(); checkSmartAlerts(); };
+
+// Init smart alerts render
+setTimeout(() => renderSmartAlerts(), 2500);
+// Refresh dashboard every 5 min if visible
+setInterval(() => { if (document.getElementById('page-dashboard')?.classList.contains('active')) renderDashboard(); }, 300000);
+
 setTimeout(() => { if (!supabaseReady) initPortfolios(); }, 300);
 
 // Handle Enter key on auth
