@@ -776,11 +776,8 @@ async function loadCrypto() {
     }
   } catch(e) {
     if (!cryptoData.length) {
-      cryptoData = SAMPLE_CRYPTO;
-      SAMPLE_CRYPTO.forEach(c => { cryptoPrices[c.id] = c.current_price; cryptoPrices[c.symbol.toLowerCase()] = c.current_price; });
-      renderCryptoList(cryptoData);
-      document.getElementById('crypto-sub').textContent = 'Sample data — open in Chrome for live prices';
-      updateTimestamp();
+      document.getElementById('crypto-list').innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">❌ Impossible de charger les prix.<br>Vérifie ta connexion ou réessaie.</div>';
+      document.getElementById('crypto-sub').textContent = 'Erreur de chargement — actualise la page';
     }
   }
 }
@@ -837,10 +834,9 @@ let avFetchAbort = false;
 function loadStocksFromBase() {
   stocksData = STOCKS.map(s => {
     const cached = stockPrices[s.symbol];
-    const price = cached || s.base * (1 + (Math.random() - 0.5) * 0.004);
-    const change = (Math.random() - 0.48) * 3;
+    const price = cached || s.base; // Prix de base exact, sans variation aléatoire
     if (!cached) stockPrices[s.symbol] = price;
-    return { ...s, price, change, isLive: !!cached };
+    return { ...s, price, change: 0, isLive: !!cached };
   });
   renderStocksList(stocksData);
 }
@@ -1182,7 +1178,11 @@ function showToast(msg) {
 // ============================================================
 let portfolioChart = null;
 let chartPeriod = '7d';
-let portfolioHistory = JSON.parse(localStorage.getItem('vault_history') || '[]');
+let portfolioHistory = JSON.parse(localStorage.getItem('vault_history_0') || '[]');
+
+function getHistoryKey() {
+  return 'vault_history_' + (portfolios[currentPortfolioIdx]?.id || '0');
+}
 
 function recordPortfolioSnapshot() {
   const total = portfolio.reduce((sum, a) => {
@@ -1194,10 +1194,9 @@ function recordPortfolioSnapshot() {
   if (total === 0) return;
   const now = Date.now();
   portfolioHistory.push({ t: now, v: total });
-  // Keep only 90 days
   const cutoff = now - 90 * 24 * 60 * 60 * 1000;
   portfolioHistory = portfolioHistory.filter(p => p.t > cutoff);
-  localStorage.setItem('vault_history', JSON.stringify(portfolioHistory));
+  localStorage.setItem(getHistoryKey(), JSON.stringify(portfolioHistory));
 }
 
 function setChartPeriod(p, el) {
@@ -1248,9 +1247,11 @@ function renderChart() {
 
   const labels = history.map(p => {
     const d = new Date(p.t);
-    return chartPeriod === '7d'
-      ? d.toLocaleDateString('en-US', {weekday:'short'})
-      : d.toLocaleDateString('en-US', {month:'short', day:'numeric'});
+    if (chartPeriod === '7d') {
+      return d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' });
+    } else {
+      return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+    }
   });
   const values = history.map(p => p.v);
   const first = values[0], last = values[values.length - 1];
@@ -1309,35 +1310,60 @@ function renderChart() {
 let allNews = [];
 let newsFilter = 'all';
 
-const CRYPTO_NEWS_FEED = [
-  { title: "Bitcoin surpasses $97,000 as institutional demand accelerates", source: "CoinDesk", time: "2h ago", tag: "crypto", url: "https://coindesk.com", related: ["btc","bitcoin"] },
-  { title: "Ethereum developers confirm next upgrade timeline for Q2 2026", source: "The Block", time: "3h ago", tag: "crypto", url: "https://theblock.co", related: ["eth","ethereum"] },
-  { title: "Solana hits new all-time high in daily transactions", source: "Decrypt", time: "4h ago", tag: "crypto", url: "https://decrypt.co", related: ["sol","solana"] },
-  { title: "SEC approves new batch of crypto ETF applications", source: "Reuters", time: "5h ago", tag: "market", url: "https://reuters.com", related: ["btc","eth"] },
-  { title: "XRP surges 12% following favorable court ruling", source: "CoinTelegraph", time: "6h ago", tag: "crypto", url: "https://cointelegraph.com", related: ["xrp","ripple"] },
-  { title: "Fed holds rates steady — crypto markets rally in response", source: "Bloomberg", time: "7h ago", tag: "market", url: "https://bloomberg.com", related: ["btc","eth","bnb"] },
-  { title: "Binance reports record trading volume in February 2026", source: "CoinDesk", time: "8h ago", tag: "crypto", url: "https://coindesk.com", related: ["bnb","binancecoin"] },
-  { title: "Global crypto market cap exceeds $3.5 trillion milestone", source: "CoinGecko", time: "10h ago", tag: "market", url: "https://coingecko.com", related: ["btc","eth","sol"] },
-  { title: "Avalanche launches major DeFi incentive program", source: "The Block", time: "12h ago", tag: "crypto", url: "https://theblock.co", related: ["avax","avalanche-2"] },
-  { title: "NVIDIA stock reaches new record on AI chip demand surge", source: "CNBC", time: "1h ago", tag: "market", url: "https://cnbc.com", related: ["nvda","nvidia"] },
-  { title: "Apple announces expanded financial services for 2026", source: "Bloomberg", time: "3h ago", tag: "market", url: "https://bloomberg.com", related: ["aapl","apple"] },
-  { title: "Tesla Q4 deliveries beat expectations, stock jumps 8%", source: "Reuters", time: "5h ago", tag: "market", url: "https://reuters.com", related: ["tsla","tesla"] },
-  { title: "Meta reports record ad revenue in Q4 earnings call", source: "WSJ", time: "6h ago", tag: "market", url: "https://wsj.com", related: ["meta"] },
-  { title: "Chainlink integrates with 50 new blockchain protocols", source: "Decrypt", time: "9h ago", tag: "crypto", url: "https://decrypt.co", related: ["link","chainlink"] },
-  { title: "Cardano's Chang hard fork successfully activated", source: "CoinTelegraph", time: "11h ago", tag: "crypto", url: "https://cointelegraph.com", related: ["ada","cardano"] },
-  { title: "US inflation data comes in lower than expected", source: "Bloomberg", time: "2h ago", tag: "market", url: "https://bloomberg.com", related: [] },
-  { title: "JPMorgan launches crypto custody service for institutional clients", source: "FT", time: "4h ago", tag: "market", url: "https://ft.com", related: ["jpm","btc"] },
-  { title: "Dogecoin surges after celebrity endorsement", source: "CoinDesk", time: "7h ago", tag: "crypto", url: "https://coindesk.com", related: ["doge","dogecoin"] },
-  { title: "Uniswap V4 launches with major liquidity improvements", source: "The Block", time: "13h ago", tag: "crypto", url: "https://theblock.co", related: ["uni","uniswap"] },
-  { title: "Microsoft integrates blockchain identity into Azure platform", source: "CNBC", time: "14h ago", tag: "market", url: "https://cnbc.com", related: ["msft","microsoft","eth"] },
-];
-
 async function loadNews() {
-  // Slight delay to simulate fetch
-  await new Promise(r => setTimeout(r, 600));
-  allNews = CRYPTO_NEWS_FEED;
-  renderNews();
-  document.getElementById('news-sub').textContent = allNews.length + ' articles · updated just now';
+  document.getElementById('news-list').innerHTML = '<div class="loading"><div class="spinner"></div><p>Chargement des news...</p></div>';
+  try {
+    // CryptoCompare news API — gratuit, pas de clé requise
+    const res = await fetch('https://min-api.cryptocompare.com/data/v2/news/?lang=EN&sortOrder=latest');
+    if (!res.ok) throw new Error('fetch failed');
+    const data = await res.json();
+    if (!data.Data || !data.Data.length) throw new Error('no data');
+
+    allNews = data.Data.slice(0, 40).map(n => {
+      // Détermine le tag selon les catégories
+      const cats = (n.categories || '').toLowerCase();
+      const tag = cats.includes('market') || cats.includes('trading') || cats.includes('finance') ? 'market' : 'crypto';
+      // Calcule le temps relatif
+      const mins = Math.floor((Date.now() / 1000 - n.published_on) / 60);
+      const timeStr = mins < 60 ? `${mins}min` : mins < 1440 ? `${Math.floor(mins/60)}h` : `${Math.floor(mins/1440)}j`;
+      // Extrait les symboles du titre/tags pour le matching portfolio
+      const related = (n.tags || '').toLowerCase().split('|').concat((n.title || '').toLowerCase().split(' ')).filter(t => t.length > 2);
+      return {
+        title: n.title,
+        source: n.source_info?.name || n.source,
+        time: timeStr + ' ago',
+        tag,
+        url: n.url,
+        imageurl: n.imageurl,
+        related
+      };
+    });
+
+    renderNews();
+    const now = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    document.getElementById('news-sub').textContent = `${allNews.length} articles · mis à jour à ${now}`;
+
+  } catch(e) {
+    // Fallback: essaie l'API alternative CoinGecko news
+    try {
+      const res2 = await fetch('https://api.coingecko.com/api/v3/news');
+      if (!res2.ok) throw new Error('fallback failed');
+      const data2 = await res2.json();
+      allNews = (data2.data || []).slice(0, 30).map(n => ({
+        title: n.title,
+        source: n.news_site,
+        time: 'recent',
+        tag: 'crypto',
+        url: n.url,
+        related: [n.title.toLowerCase()]
+      }));
+      renderNews();
+      document.getElementById('news-sub').textContent = `${allNews.length} articles · live`;
+    } catch(e2) {
+      document.getElementById('news-list').innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">❌ Impossible de charger les news.<br>Vérifie ta connexion internet.</div>';
+      document.getElementById('news-sub').textContent = 'Erreur de chargement';
+    }
+  }
 }
 
 function setNewsFilter(f, el) {
@@ -1491,7 +1517,7 @@ function goTo(page, el) {
   if (el) el.classList.add('active');
   if (page === 'portfolio') window.renderPortfolio();
   if (page === 'indices') renderIndices();
-  if (page === 'news') { if (!allNews.length) loadNews(); else renderNews(); }
+  if (page === 'news') { loadNews(); } // Toujours recharger les vraies news
   if (page === 'alerts') renderAlerts();
 }
 
@@ -1637,11 +1663,15 @@ function renderPortfolioSelect() {
 }
 
 function switchPortfolio(idx) {
-  portfolios[currentPortfolioIdx].assets = portfolio; // save current
+  portfolios[currentPortfolioIdx].assets = portfolio;
   savePortfolios();
   currentPortfolioIdx = parseInt(idx);
   portfolio = portfolios[currentPortfolioIdx].assets;
   localStorage.setItem('vault_current_portfolio', currentPortfolioIdx);
+  // Reset chart history pour ce portfolio
+  const histKey = 'vault_history_' + portfolios[currentPortfolioIdx].id;
+  portfolioHistory = JSON.parse(localStorage.getItem(histKey) || '[]');
+  if (portfolioChart) { portfolioChart.destroy(); portfolioChart = null; }
   renderPortfolioSelect();
   window.renderPortfolio();
   showToast(`Portfolio "${portfolios[currentPortfolioIdx].name}" chargé`);
