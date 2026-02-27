@@ -2,37 +2,19 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-
-<!-- PWA — désactive zoom, active plein écran natif iOS -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Vault">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#5a5fcf">
-<meta name="description" content="Vault — Dashboard finance personnel. Crypto, actions, portfolio.">
-
 <title>Vault</title>
-
-<!-- Manifest & icônes PWA -->
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152.png">
 <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
-<link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
-<link rel="icon" type="image/png" sizes="16x16" href="icons/icon-16.png">
-
-<!-- iOS Splash Screens -->
-<link rel="apple-touch-startup-image" media="screen and (device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)" href="icons/splash-1170x2532.png">
-<link rel="apple-touch-startup-image" media="screen and (device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3)" href="icons/splash-1284x2778.png">
-<link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)" href="icons/splash-1125x2436.png">
-<link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)" href="icons/splash-750x1334.png">
-<link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)" href="icons/splash-828x1792.png">
-
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
 <style>
+
 :root {
   --bg:#f0f2f7;--white:#ffffff;--surface2:#f4f5f8;--border:#dde1ea;
   --accent:#5a5fcf;--accent-light:#eceeff;--accent2:#7c3aed;
@@ -298,9 +280,11 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
   .mcap-col{display:none}
   .indices-grid{grid-column:1fr}
 }
+
 </style>
 </head>
 <body>
+
 
 <div id="auth-screen">
   <div class="auth-box">
@@ -1797,6 +1781,1190 @@ if (isInstalled) {
   // En mode app installée : ajuste le style
   document.documentElement.classList.add('pwa-installed');
 }
+</script>
+
+
+<!-- Scripts chargés EN DERNIER = DOM toujours prêt, pas de blocage -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+// ============================================================
+
+// STATE
+let authMode = 'login';
+let currentUser = null;
+let cryptoData = [], stocksData = [], portfolio = [];
+let portfolioFilter = 'all', refreshInterval = null;
+let cryptoPrices = {}, stockPrices = {}, selectedAsset = null;
+let allNews = [], newsFilter = 'all';
+let alerts = JSON.parse(localStorage.getItem('vault_alerts') || '[]');
+let smartAlerts = JSON.parse(localStorage.getItem('vault_smart_alerts') || '[]');
+let alertSelectedAsset = null, smartSelectedAsset = null, selectedSmartType = 'drawdown';
+let portfolios = [], currentPortfolioIdx = 0;
+let portfolioChart = null, chartPeriod = '7d';
+let portfolioHistory = []; // FIXE : déclaration unique
+let sb = null;
+
+const supabaseReady = SUPABASE_URL.includes('supabase.co');
+
+// AUTH
+function switchTab(mode) {
+  authMode = mode;
+  document.querySelectorAll('.auth-tab').forEach((t,i) => t.classList.toggle('active', (i===0&&mode==='login')||(i===1&&mode==='signup')));
+  document.getElementById('auth-name').style.display = mode === 'signup' ? 'block' : 'none';
+  document.getElementById('auth-submit').textContent = mode === 'login' ? 'Sign In' : 'Create Account';
+  document.getElementById('auth-error').textContent = '';
+}
+async function handleAuth() {
+  const email = document.getElementById('auth-email').value.trim();
+  const pass = document.getElementById('auth-password').value;
+  const btn = document.getElementById('auth-submit');
+  const errEl = document.getElementById('auth-error');
+  if (!email || !pass) { errEl.textContent = 'Please fill all fields'; return; }
+  btn.textContent = 'Loading...'; btn.disabled = true;
+  errEl.textContent = '';
+  
+  // Vérifie que Supabase est chargé
+  if (!sb) {
+    errEl.style.color = 'var(--red)';
+    errEl.textContent = 'Service unavailable — try again in a moment';
+    btn.textContent = authMode === 'login' ? 'Sign In' : 'Create Account';
+    btn.disabled = false;
+    return;
+  }
+  
+  try {
+    const result = authMode === 'login'
+      ? await sb.auth.signInWithPassword({ email, password: pass })
+      : await sb.auth.signUp({ email, password: pass });
+    if (result.error) throw result.error;
+    if (authMode === 'signup' && !result.data.session) {
+      errEl.style.color = 'var(--green)';
+      errEl.textContent = 'Check your email to confirm!';
+    }
+  } catch(e) {
+    errEl.style.color = 'var(--red)';
+    errEl.textContent = e.message || 'An error occurred';
+  }
+  btn.textContent = authMode === 'login' ? 'Sign In' : 'Create Account';
+  btn.disabled = false;
+}
+async function handleLogout() {
+  if (supabaseReady && sb) await sb.auth.signOut();
+  else { localStorage.removeItem('vault_demo'); portfolio = []; showAuth(); }
+}
+function showApp() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display = 'block';
+  const email = currentUser.email;
+  document.getElementById('user-avatar').textContent = email[0].toUpperCase();
+  document.getElementById('settings-email').textContent = email;
+  initApp();
+}
+function showAuth() {
+  document.getElementById('auth-screen').style.display = 'flex';
+  document.getElementById('app-screen').style.display = 'none';
+}
+async function initApp() {
+  await loadPortfolioFromCloud();
+  loadCrypto();
+  loadStocks();
+  refreshInterval = setInterval(refreshAll, 60000);
+}
+
+// NAVIGATION
+function goTo(page, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  if (el) el.classList.add('active');
+  if (page === 'portfolio') renderPortfolio();
+  if (page === 'indices') renderIndices();
+  if (page === 'news') loadNews();
+  if (page === 'alerts') { renderAlerts(); renderSmartAlerts(); }
+  if (page === 'dashboard') renderDashboard();
+}
+
+// REFRESH
+async function refreshAll() {
+  const btn = document.getElementById('refresh-btn');
+  btn.classList.add('spinning');
+  await loadCrypto();
+  loadStocks();
+  if (document.getElementById('page-portfolio').classList.contains('active')) renderPortfolio();
+  if (document.getElementById('page-indices').classList.contains('active')) renderIndices();
+  if (document.getElementById('page-dashboard').classList.contains('active')) renderDashboard();
+  checkAlerts();
+  btn.classList.remove('spinning');
+  showToast('Prices updated ✓');
+}
+
+// CRYPTO
+const COIN_COLORS = { btc:'#f7931a',eth:'#627eea',usdt:'#26a17b',bnb:'#f0b90b',sol:'#9945ff',xrp:'#346aa9',usdc:'#2775ca',ada:'#0033ad',avax:'#e84142',doge:'#c2a633',dot:'#e6007a',link:'#2a5ada',uni:'#ff007a',ltc:'#bfbbbb',atom:'#2e3148',xlm:'#14b8a6',near:'#00c08b',sui:'#4da2ff' };
+function getCoinColor(s) { return COIN_COLORS[s?.toLowerCase()] || '#5a5fcf'; }
+
+async function loadCrypto() {
+  try {
+    const res = await fetch('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=1&sparkline=false');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    if (!Array.isArray(data) || !data.length) throw new Error('empty');
+    cryptoData = data;
+    data.forEach(c => { cryptoPrices[c.id] = c.current_price; cryptoPrices[c.symbol.toLowerCase()] = c.current_price; });
+    renderCryptoList(cryptoData);
+    document.getElementById('crypto-sub').textContent = cryptoData.length + ' coins · live prices';
+    updateTimestamp();
+    for (let p = 2; p <= 5; p++) {
+      await new Promise(r => setTimeout(r, 1200));
+      try {
+        const r2 = await fetch(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=${p}&sparkline=false`);
+        if (!r2.ok) break;
+        const d2 = await r2.json();
+        if (!Array.isArray(d2) || !d2.length) break;
+        cryptoData = [...cryptoData, ...d2];
+        d2.forEach(c => { cryptoPrices[c.id] = c.current_price; cryptoPrices[c.symbol.toLowerCase()] = c.current_price; });
+        document.getElementById('crypto-sub').textContent = cryptoData.length + ' coins · live prices';
+        renderCryptoList(cryptoData);
+      } catch(e) { break; }
+    }
+  } catch(e) {
+    if (!cryptoData.length) {
+      document.getElementById('crypto-list').innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">❌ Impossible de charger les prix. Vérifie ta connexion.</div>';
+      document.getElementById('crypto-sub').textContent = 'Erreur — actualise la page';
+    }
+  }
+}
+function renderCryptoList(data) {
+  const q = document.getElementById('crypto-search').value.toLowerCase();
+  const filtered = data.filter(c => !q || c.name.toLowerCase().includes(q) || c.symbol.toLowerCase().includes(q));
+  if (!filtered.length) { document.getElementById('crypto-list').innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">No results</div>'; return; }
+  document.getElementById('crypto-list').innerHTML = filtered.map(c => {
+    const chg = c.price_change_percentage_24h || 0;
+    const col = getCoinColor(c.symbol);
+    return `<div class="coin-row"><span class="rank">${c.market_cap_rank||'—'}</span><div class="coin-info"><div class="coin-icon" style="background:${col}18;color:${col}">${c.symbol.substring(0,3).toUpperCase()}</div><div><div class="coin-name">${c.name}</div><div class="coin-symbol">${c.symbol}</div></div></div><div class="price">$${fp(c.current_price)}</div><span class="change-pill ${chg>=0?'pos':'neg'}">${chg>=0?'+':''}${chg.toFixed(2)}%</span><div class="mcap mcap-col">${fm(c.market_cap)}</div></div>`;
+  }).join('');
+}
+document.getElementById('crypto-search').addEventListener('input', () => renderCryptoList(cryptoData));
+
+// STOCKS
+const STOCKS = [
+  {symbol:'AAPL',name:'Apple',sector:'Tech',base:227.5},{symbol:'MSFT',name:'Microsoft',sector:'Tech',base:415.2},
+  {symbol:'GOOGL',name:'Alphabet',sector:'Tech',base:195.8},{symbol:'AMZN',name:'Amazon',sector:'Consumer',base:225.3},
+  {symbol:'NVDA',name:'NVIDIA',sector:'Tech',base:135.4},{symbol:'META',name:'Meta',sector:'Tech',base:605.1},
+  {symbol:'TSLA',name:'Tesla',sector:'Auto',base:342.6},{symbol:'NFLX',name:'Netflix',sector:'Media',base:1012.3},
+  {symbol:'JPM',name:'JPMorgan',sector:'Finance',base:253.4},{symbol:'V',name:'Visa',sector:'Finance',base:352.2},
+  {symbol:'MA',name:'Mastercard',sector:'Finance',base:545.6},{symbol:'UNH',name:'UnitedHealth',sector:'Health',base:490.5},
+  {symbol:'JNJ',name:'J&J',sector:'Health',base:162.3},{symbol:'PFE',name:'Pfizer',sector:'Health',base:25.4},
+  {symbol:'WMT',name:'Walmart',sector:'Retail',base:96.8},{symbol:'DIS',name:'Disney',sector:'Media',base:99.6},
+  {symbol:'PYPL',name:'PayPal',sector:'Finance',base:80.2},{symbol:'INTC',name:'Intel',sector:'Tech',base:19.5},
+  {symbol:'AMD',name:'AMD',sector:'Tech',base:131.2},{symbol:'CRM',name:'Salesforce',sector:'Tech',base:348.9},
+  {symbol:'ORCL',name:'Oracle',sector:'Tech',base:190.4},{symbol:'SHOP',name:'Shopify',sector:'Tech',base:126.3},
+  {symbol:'COIN',name:'Coinbase',sector:'Finance',base:298.4},{symbol:'PLTR',name:'Palantir',sector:'Tech',base:84.3},
+  {symbol:'BAC',name:'Bank of America',sector:'Finance',base:46.8},{symbol:'GS',name:'Goldman Sachs',sector:'Finance',base:594.2},
+  {symbol:'XOM',name:'ExxonMobil',sector:'Energy',base:106.3},{symbol:'CVX',name:'Chevron',sector:'Energy',base:147.8},
+  {symbol:'KO',name:'Coca-Cola',sector:'Consumer',base:72.4},{symbol:'PEP',name:'PepsiCo',sector:'Consumer',base:148.6},
+  {symbol:'MCD',name:"McDonald's",sector:'Consumer',base:285.4},{symbol:'SBUX',name:'Starbucks',sector:'Consumer',base:109.8},
+  {symbol:'NKE',name:'Nike',sector:'Consumer',base:72.6},{symbol:'ADBE',name:'Adobe',sector:'Tech',base:475.3},
+  {symbol:'AVGO',name:'Broadcom',sector:'Tech',base:248.6},{symbol:'QCOM',name:'Qualcomm',sector:'Tech',base:158.4},
+  {symbol:'BA',name:'Boeing',sector:'Industrial',base:175.6},{symbol:'UBER',name:'Uber',sector:'Transport',base:84.6},
+  {symbol:'ABNB',name:'Airbnb',sector:'Travel',base:139.2},{symbol:'SNAP',name:'Snap',sector:'Social',base:12.4},
+  {symbol:'RBLX',name:'Roblox',sector:'Gaming',base:50.2},{symbol:'SOFI',name:'SoFi',sector:'Finance',base:14.6},
+  {symbol:'MS',name:'Morgan Stanley',sector:'Finance',base:134.5},{symbol:'SPOT',name:'Spotify',sector:'Media',base:495.3},
+  {symbol:'HOOD',name:'Robinhood',sector:'Finance',base:38.2},{symbol:'SQ',name:'Block Inc.',sector:'Finance',base:80.7},
+  {symbol:'LYFT',name:'Lyft',sector:'Transport',base:13.8},{symbol:'TXN',name:'Texas Instruments',sector:'Tech',base:191.2}
+];
+const SC = {Tech:'#5a5fcf',Finance:'#0d9f6e',Health:'#d97706',Consumer:'#dc2626',Media:'#db2777',Auto:'#ea580c',Energy:'#65a30d',Retail:'#7c3aed',Gaming:'#0891b2',Social:'#d97706',Transport:'#0d9488',Travel:'#5a5fcf',Industrial:'#64748b'};
+const AV_CACHE_KEY = 'vault_av_prices';
+const AV_CACHE_TTL = 15 * 60 * 1000;
+let avFetchAbort = false;
+
+function loadStocksFromBase() {
+  stocksData = STOCKS.map(s => {
+    const cached = stockPrices[s.symbol];
+    const price = cached || s.base;
+    if (!cached) stockPrices[s.symbol] = price;
+    return { ...s, price, change: 0, isLive: !!cached };
+  });
+  renderStocksList(stocksData);
+}
+
+async function fetchAVQuote(symbol) {
+  const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${ALPHA_VANTAGE_KEY}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('network');
+  const data = await res.json();
+  if (data.Note || data.Information) throw new Error('rate_limit');
+  const q = data['Global Quote'];
+  if (!q || !q['05. price'] || q['05. price'] === '0.0000') throw new Error('no_data');
+  return { price: parseFloat(q['05. price']), change: parseFloat((q['10. change percent']||'0%').replace('%','')) };
+}
+
+async function loadStocks() {
+  loadStocksFromBase();
+  avFetchAbort = false;
+  try {
+    const cached = JSON.parse(localStorage.getItem(AV_CACHE_KEY) || 'null');
+    if (cached && Date.now() - cached.ts < AV_CACHE_TTL) {
+      let n = 0;
+      stocksData = stocksData.map(s => {
+        const c = cached.prices[s.symbol];
+        if (c) { stockPrices[s.symbol] = c.price; n++; return { ...s, price: c.price, change: c.change, isLive: true }; }
+        return s;
+      });
+      renderStocksList(stocksData);
+      const min = Math.round((AV_CACHE_TTL - (Date.now() - cached.ts)) / 60000);
+      document.getElementById('stocks-sub').innerHTML = `🟢 <b>${n}/50</b> prix live · cache expire dans ${min}min`;
+      return;
+    }
+  } catch(e) {}
+  const symbols = STOCKS.map(s => s.symbol);
+  const priceCache = {};
+  let fetched = 0;
+  document.getElementById('stocks-sub').innerHTML = `⏳ Chargement live… <b>0/${symbols.length}</b>`;
+  for (let i = 0; i < symbols.length; i++) {
+    if (avFetchAbort) break;
+    if (i > 0) await new Promise(r => setTimeout(r, 13000));
+    if (avFetchAbort) break;
+    const sym = symbols[i];
+    try {
+      const q = await fetchAVQuote(sym);
+      stockPrices[sym] = q.price;
+      priceCache[sym] = { price: q.price, change: q.change };
+      fetched++;
+      stocksData = stocksData.map(s => s.symbol === sym ? { ...s, price: q.price, change: q.change, isLive: true } : s);
+      renderStocksList(stocksData);
+      const remaining = symbols.length - i - 1;
+      const eta = remaining > 0 ? ` · ~${Math.ceil(remaining * 13 / 60)}min` : '';
+      document.getElementById('stocks-sub').innerHTML = `⏳ Chargement… <b>${fetched}/${symbols.length}</b>${eta}`;
+    } catch(e) {
+      if (e.message === 'rate_limit') {
+        document.getElementById('stocks-sub').innerHTML = `⚠️ Rate limit — reprise dans 60s…`;
+        await new Promise(r => setTimeout(r, 60000));
+        i--;
+        continue;
+      }
+    }
+  }
+  if (Object.keys(priceCache).length > 0) {
+    try { localStorage.setItem(AV_CACHE_KEY, JSON.stringify({ ts: Date.now(), prices: priceCache })); } catch(e) {}
+  }
+  document.getElementById('stocks-sub').innerHTML = `🟢 <b>${fetched}/${symbols.length}</b> prix live Alpha Vantage ✓`;
+}
+
+function renderStocksList(data) {
+  const q = document.getElementById('stock-search').value.toLowerCase();
+  const filtered = data.filter(s => !q || s.name.toLowerCase().includes(q) || s.symbol.toLowerCase().includes(q));
+  if (!filtered.length) { document.getElementById('stocks-list').innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">No results</div>'; return; }
+  document.getElementById('stocks-list').innerHTML = filtered.map((s, i) => {
+    const col = SC[s.sector] || '#5a5fcf';
+    const liveDot = s.isLive ? '<span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--green);margin-left:4px;vertical-align:middle"></span>' : '';
+    return `<div class="coin-row"><span class="rank">${i+1}</span><div class="coin-info"><div class="coin-icon" style="background:${col}18;color:${col};font-size:9px">${s.symbol.substring(0,4)}</div><div><div class="coin-name">${s.name}${liveDot}</div><div class="coin-symbol">${s.symbol}</div></div></div><div class="price">$${fp(s.price)}</div><span class="change-pill ${s.change>=0?'pos':'neg'}">${s.change>=0?'+':''}${s.change.toFixed(2)}%</span><div class="mcap mcap-col" style="font-size:11px;color:var(--text3)">${s.sector}</div></div>`;
+  }).join('');
+}
+document.getElementById('stock-search').addEventListener('input', () => renderStocksList(stocksData));
+
+// PORTFOLIO CLOUD
+async function loadPortfolioFromCloud() {
+  const dot = document.getElementById('sync-dot');
+  if (dot) dot.classList.add('syncing');
+  if (!supabaseReady || !sb) {
+    portfolio = JSON.parse(localStorage.getItem('vault_demo') || '[]');
+    if (dot) dot.classList.remove('syncing');
+    initPortfolios(); renderPortfolio(); return;
+  }
+  try {
+    const { data, error } = await sb.from('portfolios').select('assets').eq('user_id', currentUser.id).single();
+    if (error && error.code !== 'PGRST116') throw error;
+    portfolio = data?.assets || [];
+  } catch(e) { portfolio = []; }
+  if (dot) dot.classList.remove('syncing');
+  initPortfolios();
+  renderPortfolio();
+}
+async function savePortfolioToCloud() {
+  const dot = document.getElementById('sync-dot');
+  if (dot) dot.classList.add('syncing');
+  savePortfolios();
+  if (supabaseReady && sb) {
+    try {
+      const { data: existing } = await sb.from('portfolios').select('id').eq('user_id', currentUser.id).single();
+      if (existing) await sb.from('portfolios').update({ assets: portfolio, updated_at: new Date().toISOString() }).eq('user_id', currentUser.id);
+      else await sb.from('portfolios').insert({ user_id: currentUser.id, assets: portfolio });
+    } catch(e) { console.error('Save error:', e); }
+  } else {
+    localStorage.setItem('vault_demo', JSON.stringify(portfolio));
+  }
+  if (dot) dot.classList.remove('syncing');
+}
+
+// MULTI-PORTFOLIO
+function initPortfolios() {
+  try {
+    const saved = localStorage.getItem('vault_portfolios');
+    if (saved) {
+      portfolios = JSON.parse(saved).map(p => ({ ...p, assets: p.assets || [] }));
+    } else {
+      portfolios = [{ id: Date.now(), name: 'Principal', assets: Array.isArray(portfolio) ? portfolio : [] }];
+      savePortfolios();
+    }
+    currentPortfolioIdx = parseInt(localStorage.getItem('vault_current_portfolio') || '0');
+    if (isNaN(currentPortfolioIdx) || currentPortfolioIdx >= portfolios.length) currentPortfolioIdx = 0;
+    portfolio = portfolios[currentPortfolioIdx].assets;
+    renderPortfolioSelect();
+  } catch(e) {
+    portfolios = [{ id: Date.now(), name: 'Principal', assets: [] }];
+    currentPortfolioIdx = 0; portfolio = [];
+    renderPortfolioSelect();
+  }
+}
+function savePortfolios() {
+  portfolios[currentPortfolioIdx].assets = portfolio;
+  localStorage.setItem('vault_portfolios', JSON.stringify(portfolios));
+  localStorage.setItem('vault_current_portfolio', currentPortfolioIdx);
+}
+function renderPortfolioSelect() {
+  const sel = document.getElementById('portfolio-select');
+  if (!sel) return;
+  sel.innerHTML = portfolios.map((p, i) => `<option value="${i}" ${i===currentPortfolioIdx?'selected':''}>💼 ${p.name}</option>`).join('');
+  const badge = document.getElementById('portfolio-name-badge');
+  if (badge) badge.textContent = portfolios[currentPortfolioIdx].name;
+}
+function switchPortfolio(idx) {
+  portfolios[currentPortfolioIdx].assets = portfolio;
+  savePortfolios();
+  currentPortfolioIdx = parseInt(idx);
+  portfolio = portfolios[currentPortfolioIdx].assets;
+  localStorage.setItem('vault_current_portfolio', currentPortfolioIdx);
+  portfolioHistory = JSON.parse(localStorage.getItem('vault_history_' + portfolios[currentPortfolioIdx].id) || '[]');
+  if (portfolioChart) { portfolioChart.destroy(); portfolioChart = null; }
+  renderPortfolioSelect();
+  renderPortfolio();
+  showToast(`Portfolio "${portfolios[currentPortfolioIdx].name}" chargé`);
+}
+function createNewPortfolio() {
+  const name = prompt('Nom du nouveau portfolio :', 'Portfolio ' + (portfolios.length + 1));
+  if (!name?.trim()) return;
+  portfolios[currentPortfolioIdx].assets = portfolio;
+  portfolios.push({ id: Date.now(), name: name.trim(), assets: [] });
+  currentPortfolioIdx = portfolios.length - 1;
+  portfolio = [];
+  savePortfolios(); renderPortfolioSelect(); renderPortfolio();
+  showToast(`✅ Portfolio "${name.trim()}" créé !`);
+}
+function deleteCurrentPortfolio() {
+  if (portfolios.length === 1) { showToast('❌ Tu dois garder au moins 1 portfolio'); return; }
+  const name = portfolios[currentPortfolioIdx].name;
+  if (!confirm(`Supprimer le portfolio "${name}" ?`)) return;
+  portfolios.splice(currentPortfolioIdx, 1);
+  currentPortfolioIdx = Math.max(0, currentPortfolioIdx - 1);
+  portfolio = portfolios[currentPortfolioIdx].assets;
+  savePortfolios(); renderPortfolioSelect(); renderPortfolio();
+  showToast(`Portfolio "${name}" supprimé`);
+}
+
+// RENDER PORTFOLIO
+function renderPortfolio() {
+  const filtered = portfolio.filter(a => portfolioFilter === 'all' || a.type === portfolioFilter);
+  let tv = 0, tc = 0;
+  const assets = filtered.map(a => {
+    const cp = a.type === 'crypto'
+      ? (cryptoPrices[a.symbol.toLowerCase()] || cryptoPrices[a.id] || a.buyPrice)
+      : (stockPrices[a.symbol.toUpperCase()] || a.buyPrice);
+    const val = cp * a.qty, cost = a.buyPrice * a.qty;
+    tv += val; tc += cost;
+    return { ...a, cp, val, cost, pnlD: val-cost, pnlP: cost > 0 ? ((val-cost)/cost)*100 : 0 };
+  });
+  const pnlD = tv-tc, pnlP = tc > 0 ? (pnlD/tc)*100 : 0;
+  document.getElementById('portfolio-total').textContent = '$' + fp(tv);
+  document.getElementById('portfolio-pnl-dollar').textContent = (pnlD>=0?'+':'-') + '$' + Math.abs(pnlD).toFixed(2);
+  document.getElementById('portfolio-pnl-pct').textContent = (pnlP>=0?'+':'') + pnlP.toFixed(2) + '%';
+  if (!assets.length) {
+    document.getElementById('portfolio-assets').innerHTML = '<div style="text-align:center;padding:48px 24px;color:var(--muted)"><div style="font-size:48px;margin-bottom:12px">💼</div><div style="font-size:15px;font-weight:700;color:var(--text2);margin-bottom:6px">Portfolio is empty</div><div style="font-size:13px;font-weight:500">Add your first asset below</div></div>';
+    setTimeout(() => { recordPortfolioSnapshot(); renderChart(); }, 300);
+    return;
+  }
+  document.getElementById('portfolio-assets').innerHTML = assets.map(a => {
+    const idx = portfolio.findIndex(p => p.symbol === a.symbol && p.type === a.type);
+    const col = a.type === 'crypto' ? getCoinColor(a.symbol) : (SC[stocksData.find(s => s.symbol === a.symbol.toUpperCase())?.sector] || '#5a5fcf');
+    const news = getAssetNews(a.symbol, a.name);
+    const newsHtml = news.length ? `
+      <div class="asset-news">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">📰 Related News</div>
+        ${news.map(n => `<a href="${n.url}" target="_blank" rel="noopener" style="text-decoration:none"><div class="asset-news-item"><div class="asset-news-title">${n.title}</div><div class="asset-news-meta">${n.source} · ${n.time}</div></div></a>`).join('')}
+      </div>` : '';
+    return `<div class="asset-card" onclick="toggleDetail(${idx})">
+      <div class="asset-top">
+        <div class="asset-left">
+          <div class="asset-icon" style="background:${col}18;color:${col}">${a.symbol.substring(0,3).toUpperCase()}</div>
+          <div><div class="asset-name">${a.name}</div><div class="asset-sym">${a.symbol.toUpperCase()} · ${a.type==='crypto'?'Crypto':'Stock'}</div></div>
+        </div>
+        <div class="asset-right">
+          <div class="asset-value">$${fp(a.val)}</div>
+          <span class="change-pill ${a.pnlD>=0?'pos':'neg'}" style="font-size:11px;margin-top:4px">${a.pnlD>=0?'+':''}${a.pnlP.toFixed(2)}%</span>
+        </div>
+      </div>
+      <div class="asset-detail" id="detail-${idx}">
+        <div class="detail-grid">
+          <div class="detail-item"><label>Buy Price</label><value>$${fp(a.buyPrice)}</value></div>
+          <div class="detail-item"><label>Current Price</label><value>$${fp(a.cp)}</value></div>
+          <div class="detail-item"><label>P&L $</label><value style="color:${a.pnlD>=0?'var(--green)':'var(--red)'}">${a.pnlD>=0?'+':'-'}$${Math.abs(a.pnlD).toFixed(2)}</value></div>
+          <div class="detail-item"><label>P&L %</label><value style="color:${a.pnlD>=0?'var(--green)':'var(--red)'}">${a.pnlP>=0?'+':''}${a.pnlP.toFixed(2)}%</value></div>
+          <div class="detail-item"><label>Quantity</label><value>${a.qty}</value></div>
+          <div class="detail-item"><label>Total Cost</label><value>$${fp(a.cost)}</value></div>
+        </div>
+        ${newsHtml}
+        <button class="remove-btn" onclick="event.stopPropagation();removeAsset('${a.symbol}','${a.type}')">Remove Asset</button>
+      </div>
+    </div>`;
+  }).join('');
+  setTimeout(() => { recordPortfolioSnapshot(); renderChart(); }, 300);
+}
+function toggleDetail(idx) { document.getElementById('detail-'+idx)?.classList.toggle('open'); }
+function setFilter(f) {
+  portfolioFilter = f;
+  ['all','crypto','stock'].forEach(id => document.getElementById('filter-'+id).classList.toggle('active', id===f));
+  renderPortfolio();
+}
+async function removeAsset(s, t) {
+  portfolio = portfolio.filter(a => !(a.symbol===s && a.type===t));
+  renderPortfolio(); await savePortfolioToCloud(); showToast('Asset removed');
+}
+async function clearPortfolio() {
+  if (confirm('Remove all assets?')) { portfolio = []; renderPortfolio(); await savePortfolioToCloud(); showToast('Portfolio cleared'); }
+}
+
+// MODAL — FIXE : utilise opacity + pointer-events au lieu de display:none/flex
+function openModal() {
+  document.getElementById('modal').classList.add('open');
+  setTimeout(() => document.getElementById('asset-search-input').focus(), 300);
+}
+function closeModal() {
+  document.getElementById('modal').classList.remove('open');
+  clearSelectedAsset();
+  ['asset-qty','asset-buy-price','asset-search-input'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('autocomplete-list').classList.remove('open');
+}
+function updateAssetType() { clearSelectedAsset(); document.getElementById('asset-search-input').value = ''; document.getElementById('autocomplete-list').classList.remove('open'); }
+function handleAssetSearch() {
+  const q = document.getElementById('asset-search-input').value.toLowerCase().trim();
+  const type = document.getElementById('asset-type').value;
+  const list = document.getElementById('autocomplete-list');
+  if (!q) { list.classList.remove('open'); return; }
+  let results = type === 'crypto'
+    ? cryptoData.filter(c => c.name.toLowerCase().includes(q) || c.symbol.toLowerCase().includes(q)).slice(0, 8)
+    : stocksData.filter(s => s.name.toLowerCase().includes(q) || s.symbol.toLowerCase().includes(q)).slice(0, 8);
+  if (!results.length) list.innerHTML = '<div class="autocomplete-item" style="color:var(--muted)">No results</div>';
+  else if (type === 'crypto') list.innerHTML = results.map(c => `<div class="autocomplete-item" onclick="selectCrypto('${c.id}')"><span class="ac-symbol">${c.symbol.toUpperCase()}</span><span class="ac-name">${c.name}</span><span class="ac-price">$${fp(c.current_price)}</span></div>`).join('');
+  else list.innerHTML = results.map(s => `<div class="autocomplete-item" onclick="selectStock('${s.symbol}')"><span class="ac-symbol">${s.symbol}</span><span class="ac-name">${s.name}</span><span class="ac-price">$${fp(s.price)}</span></div>`).join('');
+  list.classList.add('open');
+}
+function selectCrypto(id) {
+  const c = cryptoData.find(x => x.id === id); if (!c) return;
+  selectedAsset = { type:'crypto', symbol:c.symbol.toLowerCase(), name:c.name, currentPrice:c.current_price, id:c.id };
+  document.getElementById('asset-search-input').value = c.name;
+  document.getElementById('autocomplete-list').classList.remove('open');
+  document.getElementById('asset-buy-price').value = c.current_price;
+  document.getElementById('selected-icon').textContent = c.symbol.substring(0,3).toUpperCase();
+  document.getElementById('selected-name').textContent = c.name;
+  document.getElementById('selected-price').textContent = 'Current: $' + fp(c.current_price);
+  document.getElementById('selected-asset-display').style.display = 'block';
+}
+function selectStock(sym) {
+  const s = stocksData.find(x => x.symbol === sym); if (!s) return;
+  selectedAsset = { type:'stock', symbol:s.symbol, name:s.name, currentPrice:s.price };
+  document.getElementById('asset-search-input').value = s.name;
+  document.getElementById('autocomplete-list').classList.remove('open');
+  document.getElementById('asset-buy-price').value = s.price.toFixed(2);
+  document.getElementById('selected-icon').textContent = s.symbol.substring(0,3);
+  document.getElementById('selected-name').textContent = s.name;
+  document.getElementById('selected-price').textContent = 'Current: $' + fp(s.price);
+  document.getElementById('selected-asset-display').style.display = 'block';
+}
+function clearSelectedAsset() { selectedAsset = null; document.getElementById('selected-asset-display').style.display = 'none'; }
+async function addAsset() {
+  if (!selectedAsset) { showToast('Select an asset first'); return; }
+  const qty = parseFloat(document.getElementById('asset-qty').value);
+  const bp = parseFloat(document.getElementById('asset-buy-price').value);
+  if (!qty || qty <= 0) { showToast('Enter a valid quantity'); return; }
+  if (!bp || bp <= 0) { showToast('Enter a valid buy price'); return; }
+  if (portfolio.find(a => a.symbol === selectedAsset.symbol && a.type === selectedAsset.type)) { showToast('Already in portfolio'); return; }
+  portfolio.push({ type:selectedAsset.type, symbol:selectedAsset.symbol, name:selectedAsset.name, qty, buyPrice:bp });
+  closeModal(); renderPortfolio(); await savePortfolioToCloud(); showToast('Asset added ✓');
+}
+
+// Fermeture modale au clic sur l'overlay
+document.getElementById('modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal')) closeModal();
+});
+
+// INDICES
+async function renderIndices() {
+  const grid = document.getElementById('indices-grid');
+  grid.innerHTML = '<div class="loading" style="grid-column:1/-1"><div class="spinner"></div><p>Loading...</p></div>';
+  let fg = null, fgLabel = '—';
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 5000);
+    const r = await fetch('https://api.alternative.me/fng/', { signal: ctrl.signal });
+    clearTimeout(t);
+    if (r.ok) { const d = await r.json(); fg = parseInt(d.data[0].value); fgLabel = d.data[0].value_classification; }
+  } catch(e) {}
+  let gd = null;
+  try {
+    const ctrl2 = new AbortController();
+    const t2 = setTimeout(() => ctrl2.abort(), 7000);
+    const r2 = await fetch('https://api.coingecko.com/api/v3/global', { signal: ctrl2.signal });
+    clearTimeout(t2);
+    if (r2.ok) { const j = await r2.json(); gd = j.data; }
+  } catch(e) {}
+  const fgVal = fg ?? '—';
+  const fgCol = typeof fg === 'number' ? (fg < 25 ? '#e53e3e' : fg < 45 ? '#dd6b20' : fg < 55 ? '#d69e2e' : fg < 75 ? '#38a169' : '#0d9f6e') : '#718096';
+  const mcap = gd?.total_market_cap?.usd || null;
+  const btcD = gd?.market_cap_percentage?.btc?.toFixed(1) || '—';
+  const ethD = gd?.market_cap_percentage?.eth?.toFixed(1) || '—';
+  const vol = gd?.total_volume?.usd || null;
+  const coins = gd?.active_cryptocurrencies || '—';
+  const mcap24 = gd?.market_cap_change_percentage_24h_usd?.toFixed(2) || null;
+  const btcP = cryptoPrices['bitcoin'] || null;
+  const ethP = cryptoPrices['ethereum'] || null;
+  grid.innerHTML = `
+    <div class="index-card full">
+      <div class="index-label">Fear & Greed Index</div>
+      ${typeof fg === 'number' ? `
+        <div class="fg-number" style="color:${fgCol}">${fg}</div>
+        <div class="fg-word" style="color:${fgCol}">${fgLabel}</div>
+        <div class="fg-bar"><div class="fg-dot" style="left:calc(${fg}% - 9px)"></div></div>
+        <div class="fg-labels"><span>Extreme Fear</span><span>Fear</span><span>Neutral</span><span>Greed</span><span>Extreme Greed</span></div>
+      ` : '<div style="text-align:center;padding:16px;color:var(--muted);font-size:13px">API indisponible — réessaie dans 1 min</div>'}
+    </div>
+    <div class="index-card"><div class="index-label">Global Market Cap</div><div class="index-value">${mcap ? fm(mcap) : 'N/A'}</div><div class="index-sub" style="color:${mcap24>=0?'var(--green)':'var(--red)'}">${mcap24 !== null ? (mcap24>=0?'↑':'↓') + ' ' + Math.abs(mcap24) + '% (24h)' : '—'}</div></div>
+    <div class="index-card"><div class="index-label">24h Volume</div><div class="index-value">${vol ? fm(vol) : 'N/A'}</div><div class="index-sub">Global trading</div></div>
+    <div class="index-card"><div class="index-label">BTC Dominance</div><div class="index-value" style="color:#f7931a">${btcD}%</div><div class="index-sub">${btcP ? '$'+fp(btcP) : '—'}</div></div>
+    <div class="index-card"><div class="index-label">ETH Dominance</div><div class="index-value" style="color:#627eea">${ethD}%</div><div class="index-sub">${ethP ? '$'+fp(ethP) : '—'}</div></div>
+    <div class="index-card full"><div class="index-label">Active Cryptocurrencies</div><div class="index-value">${Number(coins).toLocaleString()}</div><div class="index-sub">Listed on CoinGecko</div></div>`;
+}
+
+// DASHBOARD
+async function renderDashboard() {
+  const now = new Date();
+  document.getElementById('dash-date').textContent = now.toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long' });
+  ['dash-fg','dash-dom','dash-mktcap','dash-pf-val'].forEach(id => document.getElementById(id).textContent = '…');
+  document.getElementById('dash-signals-list').innerHTML = '<div class="loading"><div class="spinner"></div><p>Chargement des données marché...</p></div>';
+  document.getElementById('dash-opportunities').innerHTML = '<div class="loading"><div class="spinner"></div><p>Analyse en cours...</p></div>';
+  document.getElementById('dash-portfolio-breakdown').innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted);font-size:13px">Chargement...</div>';
+
+  const total = portfolio.reduce((s, a) => {
+    const p = a.type === 'crypto'
+      ? (cryptoPrices[a.symbol.toLowerCase()] || cryptoPrices[a.id] || null)
+      : (stockPrices[a.symbol] || null);
+    return p !== null ? s + p * a.qty : s;
+  }, 0);
+  const cost = portfolio.reduce((s, a) => s + a.buyPrice * a.qty, 0);
+  const pnl = total - cost, pnlPct = cost > 0 ? (pnl/cost*100) : 0;
+  const pfCard = document.getElementById('card-pf');
+  const pfVal = document.getElementById('dash-pf-val');
+  if (portfolio.length === 0) {
+    pfVal.textContent = '—'; document.getElementById('dash-pf-pnl').textContent = 'Portfolio vide';
+    pfCard.className = 'signal-card';
+  } else {
+    pfVal.textContent = '$' + fp(total);
+    pfCard.className = 'signal-card ' + (pnl >= 0 ? 'green' : 'red');
+    document.getElementById('dash-pf-pnl').textContent = (pnl>=0?'+':'') + fp(pnl) + ' (' + (pnlPct>=0?'+':'') + pnlPct.toFixed(1) + '%)';
+  }
+
+  const ft = (url, ms=7000) => {
+    const c = new AbortController();
+    const t = setTimeout(() => c.abort(), ms);
+    return fetch(url, { signal: c.signal }).finally(() => clearTimeout(t));
+  };
+
+  let gd = null, fgVal = null, fgLabel = null;
+  const [globalRes, fgRes] = await Promise.allSettled([
+    ft('https://api.coingecko.com/api/v3/global', 8000).then(r => { if (!r.ok) throw new Error('HTTP '+r.status); return r.json(); }),
+    ft('https://api.alternative.me/fng/?limit=1', 6000).then(r => { if (!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+  ]);
+
+  if (globalRes.status === 'fulfilled' && globalRes.value?.data) gd = globalRes.value.data;
+  if (fgRes.status === 'fulfilled' && fgRes.value?.data?.[0]) {
+    fgVal = parseInt(fgRes.value.data[0].value);
+    fgLabel = fgRes.value.data[0].value_classification;
+  }
+
+  const fgEl = document.getElementById('dash-fg');
+  const fgSub = document.getElementById('dash-fg-sub');
+  const fgCard = document.getElementById('card-fg');
+  if (fgVal !== null) {
+    fgEl.textContent = fgVal; fgSub.textContent = fgLabel;
+    fgCard.className = 'signal-card ' + (fgVal < 25 ? 'red' : fgVal < 45 ? 'orange' : fgVal < 75 ? 'green' : 'orange');
+  } else {
+    fgEl.textContent = 'N/A'; fgSub.textContent = 'Indispo'; fgCard.className = 'signal-card';
+    fgCard.style.cursor = 'pointer'; fgCard.onclick = () => renderDashboard();
+  }
+
+  const domEl = document.getElementById('dash-dom');
+  const domSub = document.getElementById('dash-dom-sub');
+  const domCard = document.getElementById('card-dom');
+  let dom = null;
+  if (gd) {
+    dom = gd.market_cap_percentage?.btc;
+    const btcP = cryptoPrices['bitcoin'] || cryptoPrices['btc'] || null;
+    domEl.textContent = dom ? dom.toFixed(1) + '%' : '—';
+    domCard.className = 'signal-card ' + (dom > 55 ? 'orange' : 'purple');
+    domSub.textContent = btcP ? '$' + fp(btcP) : '—';
+  } else { domEl.textContent = 'N/A'; domSub.textContent = 'API indisponible'; domCard.className = 'signal-card'; }
+
+  const mcapEl = document.getElementById('dash-mktcap');
+  const mcapSub = document.getElementById('dash-mktcap-sub');
+  const mcapCard = document.getElementById('card-mktcap');
+  let mcapChange = null;
+  if (gd) {
+    const mcap = gd.total_market_cap?.usd || 0;
+    mcapChange = gd.market_cap_change_percentage_24h_usd ?? null;
+    mcapEl.textContent = mcap > 1e12 ? (mcap/1e12).toFixed(2)+'T' : mcap > 1e9 ? (mcap/1e9).toFixed(0)+'B' : '—';
+    mcapCard.className = 'signal-card ' + (mcapChange >= 0 ? 'green' : 'red');
+    mcapSub.textContent = mcapChange !== null ? (mcapChange>=0?'▲':'▼') + Math.abs(mcapChange).toFixed(1) + '% 24h' : '—';
+  } else { mcapEl.textContent = 'N/A'; mcapSub.textContent = 'API indisponible'; mcapCard.className = 'signal-card'; }
+
+  const signals = [];
+  if (!gd && fgVal === null) {
+    signals.push({ icon:'⚠️', text:'Données marché indisponibles', detail:'APIs en rate limit ou hors ligne. Réessaie dans 1 minute.', badge:'warn', badgeTxt:'API Error' });
+  } else {
+    if (fgVal !== null) {
+      if (fgVal <= 20) signals.push({ icon:'😱', text:`Extreme Fear (${fgVal}) — zone d'opportunité`, detail:"Historiquement les meilleurs points d'entrée.", badge:'danger', badgeTxt:'Extreme Fear' });
+      else if (fgVal >= 80) signals.push({ icon:'🤑', text:`Extreme Greed (${fgVal}) — marché surchauffé`, detail:'Risque de correction. Considère sécuriser des profits.', badge:'warn', badgeTxt:'Extreme Greed' });
+    }
+    if (dom !== null) {
+      if (dom > 60) signals.push({ icon:'👑', text:`BTC très dominant (${dom.toFixed(1)}%)`, detail:'Altcoins sous pression.', badge:'warn', badgeTxt:'BTC Saison' });
+      else if (dom < 45) signals.push({ icon:'🚀', text:`BTC dominance faible (${dom.toFixed(1)}%)`, detail:'Rotation vers les altcoins possible.', badge:'info', badgeTxt:'Alt Saison' });
+    }
+    if (mcapChange !== null && Math.abs(mcapChange) >= 5) {
+      signals.push({ icon: mcapChange>0?'📈':'📉', text:`Marché global ${mcapChange>0?'+':''}${mcapChange.toFixed(1)}% en 24h`, detail:'Mouvement important. Surveille tes positions.', badge: mcapChange>0?'ok':'danger', badgeTxt: mcapChange>0?'Haussier':'Baissier' });
+    }
+  }
+  cryptoData.forEach(c => {
+    const inPf = portfolio.find(a => a.id === c.id || a.symbol.toLowerCase() === c.symbol.toLowerCase());
+    const chg = c.price_change_percentage_24h;
+    if (inPf && chg !== null && Math.abs(chg) >= 10) {
+      signals.push({ icon: chg>0?'🚀':'📉', text:`${c.name} ${chg>0?'+':''}${chg.toFixed(1)}% aujourd'hui`, detail:`Dans ton portfolio — $${fp(c.current_price)}`, badge: chg>0?'ok':'danger', badgeTxt: chg>0?'Hausse':'Chute' });
+    }
+  });
+  portfolio.forEach(a => {
+    const cp = a.type === 'crypto' ? (cryptoPrices[a.symbol.toLowerCase()] || cryptoPrices[a.id] || null) : (stockPrices[a.symbol] || null);
+    if (cp === null) return;
+    const dd = (cp - a.buyPrice) / a.buyPrice * 100;
+    if (dd <= -25) signals.push({ icon:'🩸', text:`${a.symbol.toUpperCase()} en chute de ${dd.toFixed(0)}%`, detail:`Acheté $${fp(a.buyPrice)}, maintenant $${fp(cp)}`, badge:'danger', badgeTxt:'Drawdown' });
+    if (dd >= 50) signals.push({ icon:'💰', text:`${a.symbol.toUpperCase()} +${dd.toFixed(0)}% — prendre des profits ?`, detail:`Acheté $${fp(a.buyPrice)}, maintenant $${fp(cp)}`, badge:'warn', badgeTxt:'Profits' });
+  });
+
+  document.getElementById('dash-signals-list').innerHTML = signals.length
+    ? signals.map(s => `<div class="watch-item"><div class="watch-icon">${s.icon}</div><div class="watch-info"><div class="watch-text">${s.text}</div><div class="watch-detail">${s.detail}</div></div><span class="watch-badge ${s.badge}">${s.badgeTxt}</span></div>`).join('')
+    : '<div class="watch-item"><div class="watch-icon">✅</div><div class="watch-info"><div class="watch-text">Aucun signal particulier</div><div class="watch-detail">Marché calme.</div></div><span class="watch-badge ok">OK</span></div>';
+
+  renderDashPortfolio(total);
+  renderDashOpportunities(fgVal, dom, mcapChange);
+  document.getElementById('dash-sub').textContent = 'Mis à jour à ' + now.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
+}
+
+function renderDashPortfolio(total) {
+  const el = document.getElementById('dash-portfolio-breakdown');
+  if (!portfolio.length) { el.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted);font-size:13px">Ajoute des assets pour voir l\'analyse</div>'; return; }
+  const assets = portfolio.map(a => {
+    const p = a.type === 'crypto' ? (cryptoPrices[a.symbol.toLowerCase()] || cryptoPrices[a.id] || a.buyPrice) : (stockPrices[a.symbol] || a.buyPrice);
+    return { ...a, cp: p, val: p * a.qty, pnl: ((p - a.buyPrice) / a.buyPrice * 100) };
+  }).sort((a,b) => b.val - a.val);
+  el.innerHTML = assets.map(a => {
+    const pct = total > 0 ? (a.val / total * 100) : 0;
+    const col = a.type === 'crypto' ? getCoinColor(a.symbol) : '#5a5fcf';
+    return `<div class="watch-item">
+      <div style="width:34px;height:34px;border-radius:50%;background:${col}18;color:${col};font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${a.symbol.substring(0,3).toUpperCase()}</div>
+      <div class="watch-info">
+        <div class="watch-text">${a.name} <span style="font-size:11px;color:var(--text3);font-weight:500">${pct.toFixed(1)}%</span></div>
+        <div style="margin-top:4px;background:var(--surface2);border-radius:4px;height:4px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${col};border-radius:4px"></div></div>
+      </div>
+      <span class="watch-badge ${a.pnl>=0?'ok':'danger'}">${a.pnl>=0?'+':''}${a.pnl.toFixed(1)}%</span>
+    </div>`;
+  }).join('');
+}
+
+function renderDashOpportunities(fgVal, dom, mcapChange) {
+  const el = document.getElementById('dash-opportunities');
+  const ops = [];
+  if (fgVal !== null && fgVal <= 30) ops.push({ icon:'💎', text:'Zone Fear — opportunité d\'accumulation', detail:`Fear & Greed à ${fgVal}.`, badge:'info', badgeTxt:'DCA' });
+  if (dom !== null && dom < 48) ops.push({ icon:'🌊', text:'Altseason possible — ETH, SOL, BNB', detail:`BTC dominance à ${dom.toFixed(1)}%.`, badge:'info', badgeTxt:'Alts' });
+  if (mcapChange !== null && mcapChange < -5) ops.push({ icon:'🛒', text:`Correction ${mcapChange.toFixed(1)}% — entrée potentielle`, detail:'DCA progressif plutôt qu\'en one-shot.', badge:'info', badgeTxt:'Entrée' });
+  portfolio.forEach(a => {
+    const cp = a.type === 'crypto' ? (cryptoPrices[a.symbol.toLowerCase()] || cryptoPrices[a.id] || null) : (stockPrices[a.symbol] || null);
+    if (cp === null) return;
+    const pnlPct = (cp - a.buyPrice) / a.buyPrice * 100;
+    if (pnlPct >= 50) ops.push({ icon:'💰', text:`${a.symbol.toUpperCase()} +${pnlPct.toFixed(0)}% — sécuriser des profits ?`, detail:`Acheté $${fp(a.buyPrice)}, maintenant $${fp(cp)}`, badge:'warn', badgeTxt:'Profits' });
+  });
+  if (!ops.length) ops.push({ icon:'👀', text:'Marché neutre — pas de signal clair', detail:'Attends Fear & Greed extrême pour agir.', badge:'info', badgeTxt:'Attente' });
+  el.innerHTML = ops.map(o => `<div class="watch-item"><div class="watch-icon">${o.icon}</div><div class="watch-info"><div class="watch-text">${o.text}</div><div class="watch-detail">${o.detail}</div></div><span class="watch-badge ${o.badge}">${o.badgeTxt}</span></div>`).join('');
+}
+
+// CHART
+function getHistoryKey() { return 'vault_history_' + (portfolios[currentPortfolioIdx]?.id || '0'); }
+function recordPortfolioSnapshot() {
+  const total = portfolio.reduce((s, a) => {
+    const cp = a.type === 'crypto' ? (cryptoPrices[a.symbol.toLowerCase()] || cryptoPrices[a.id] || a.buyPrice) : (stockPrices[a.symbol] || a.buyPrice);
+    return s + cp * a.qty;
+  }, 0);
+  if (total === 0) return;
+  const now = Date.now();
+  portfolioHistory.push({ t: now, v: total });
+  const cutoff = now - 90 * 24 * 60 * 60 * 1000;
+  portfolioHistory = portfolioHistory.filter(p => p.t > cutoff);
+  localStorage.setItem(getHistoryKey(), JSON.stringify(portfolioHistory));
+}
+function setChartPeriod(p, el) {
+  chartPeriod = p;
+  document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+  if (el) el.classList.add('active');
+  renderChart();
+}
+function renderChart() {
+  const canvas = document.getElementById('portfolio-chart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const now = Date.now();
+  const days = chartPeriod === '7d' ? 7 : chartPeriod === '30d' ? 30 : 90;
+  const cutoff = now - days * 24 * 60 * 60 * 1000;
+  let history = portfolioHistory.filter(p => p.t > cutoff);
+  const currentTotal = portfolio.reduce((s, a) => {
+    const cp = a.type === 'crypto' ? (cryptoPrices[a.symbol.toLowerCase()] || a.buyPrice) : (stockPrices[a.symbol] || a.buyPrice);
+    return s + cp * a.qty;
+  }, 0);
+  if (history.length < 3) {
+    if (currentTotal === 0) {
+      if (portfolioChart) { portfolioChart.destroy(); portfolioChart = null; }
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#9ca3af'; ctx.font = '13px Inter'; ctx.textAlign = 'center';
+      ctx.fillText('Add assets to see your chart', canvas.width/2, canvas.height/2);
+      return;
+    }
+    const cost = portfolio.reduce((s, a) => s + a.buyPrice * a.qty, 0);
+    history = [];
+    for (let i = days; i >= 0; i--) {
+      const t = now - i * 24 * 60 * 60 * 1000;
+      const progress = (days - i) / days;
+      const trend = cost + (currentTotal - cost) * progress;
+      const noise = trend * (Math.random() - 0.48) * 0.015;
+      history.push({ t, v: Math.max(trend + noise, cost * 0.8) });
+    }
+    history.push({ t: now, v: currentTotal });
+  }
+  const labels = history.map(p => {
+    const d = new Date(p.t);
+    return chartPeriod === '7d' ? d.toLocaleDateString('fr-FR', { weekday:'short', day:'numeric' }) : d.toLocaleDateString('fr-FR', { day:'numeric', month:'short' });
+  });
+  const values = history.map(p => p.v);
+  const first = values[0], last = values[values.length-1];
+  const isUp = last >= first;
+  const color = isUp ? '#0d9f6e' : '#e53e3e';
+  if (portfolioChart) portfolioChart.destroy();
+  portfolioChart = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets: [{ data: values, borderColor: color, borderWidth: 2.5, backgroundColor: isUp ? 'rgba(13,159,110,0.12)' : 'rgba(229,62,62,0.12)', fill: true, tension: 0.4, pointRadius: 0, pointHoverRadius: 4, pointHoverBackgroundColor: color }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { display: false }, tooltip: { backgroundColor: '#0f1117', titleColor: '#9ca3af', bodyColor: '#fff', bodyFont: { family: 'DM Mono', size: 13, weight: '600' }, callbacks: { label: ctx => '$' + fp(ctx.raw) } } },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { family: 'Inter', size: 10 }, color: '#718096', maxTicksLimit: 6 } },
+        y: { grid: { color: '#f0f2f7' }, ticks: { font: { family: 'DM Mono', size: 10 }, color: '#718096', callback: v => '$' + (v >= 1000 ? (v/1000).toFixed(1)+'k' : v.toFixed(0)) } }
+      }
+    }
+  });
+}
+
+// NEWS
+async function loadNews() {
+  document.getElementById('news-list').innerHTML = '<div class="loading"><div class="spinner"></div><p>Chargement...</p></div>';
+  try {
+    const res = await fetch('https://min-api.cryptocompare.com/data/v2/news/?lang=EN&sortOrder=latest');
+    if (!res.ok) throw new Error('fetch failed');
+    const data = await res.json();
+    if (!data.Data?.length) throw new Error('no data');
+    allNews = data.Data.slice(0, 40).map(n => {
+      const cats = (n.categories || '').toLowerCase();
+      const tag = cats.includes('market') || cats.includes('trading') ? 'market' : 'crypto';
+      const mins = Math.floor((Date.now()/1000 - n.published_on) / 60);
+      const timeStr = mins < 60 ? `${mins}min` : mins < 1440 ? `${Math.floor(mins/60)}h` : `${Math.floor(mins/1440)}j`;
+      const related = (n.tags||'').toLowerCase().split('|').concat(n.title.toLowerCase().split(' ')).filter(t => t.length > 2);
+      return { title: n.title, source: n.source_info?.name || n.source, time: timeStr + ' ago', tag, url: n.url, related };
+    });
+    renderNews();
+    document.getElementById('news-sub').textContent = `${allNews.length} articles · ${new Date().toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' })}`;
+  } catch(e) {
+    try {
+      const res2 = await fetch('https://api.coingecko.com/api/v3/news');
+      if (!res2.ok) throw new Error('fallback failed');
+      const data2 = await res2.json();
+      allNews = (data2.data || []).slice(0, 30).map(n => ({ title: n.title, source: n.news_site, time: 'recent', tag: 'crypto', url: n.url, related: [n.title.toLowerCase()] }));
+      renderNews();
+    } catch(e2) {
+      document.getElementById('news-list').innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">❌ Impossible de charger les news.</div>';
+    }
+  }
+}
+function setNewsFilter(f, el) {
+  newsFilter = f;
+  document.querySelectorAll('.news-filter-btn').forEach(b => b.classList.remove('active'));
+  if (el) el.classList.add('active');
+  renderNews();
+}
+function renderNews() {
+  const filtered = newsFilter === 'all' ? allNews : allNews.filter(n => n.tag === newsFilter);
+  document.getElementById('news-list').innerHTML = filtered.map(n => `
+    <a class="news-card" href="${n.url}" target="_blank" rel="noopener">
+      <div class="news-source">${n.source} <span style="color:var(--muted);font-weight:400;text-transform:none">· ${n.time}</span></div>
+      <div class="news-title">${n.title}</div>
+      <span class="news-tag ${n.tag}">${n.tag === 'crypto' ? '🪙 Crypto' : '🌐 Market'}</span>
+    </a>`).join('');
+}
+function getAssetNews(symbol, name) {
+  const q = [symbol.toLowerCase(), name.toLowerCase()];
+  return allNews.filter(n => n.related.some(r => q.some(s => r.includes(s) || s.includes(r)))).slice(0, 3);
+}
+
+// PRICE ALERTS
+function handleAlertSearch() {
+  const q = document.getElementById('alert-asset-input').value.toLowerCase().trim();
+  const list = document.getElementById('alert-autocomplete');
+  if (!q) { list.classList.remove('open'); return; }
+  const results = [
+    ...cryptoData.filter(c => c.name.toLowerCase().includes(q) || c.symbol.toLowerCase().includes(q)).slice(0, 4).map(c => ({ label: c.symbol.toUpperCase(), name: c.name, price: c.current_price, type: 'crypto', id: c.id, symbol: c.symbol })),
+    ...stocksData.filter(s => s.name.toLowerCase().includes(q) || s.symbol.toLowerCase().includes(q)).slice(0, 3).map(s => ({ label: s.symbol, name: s.name, price: s.price, type: 'stock', id: s.symbol, symbol: s.symbol }))
+  ].slice(0, 6);
+  list.innerHTML = results.length ? results.map(r => `<div class="autocomplete-item" onclick="selectAlertAsset('${r.id}','${r.type}')"><span class="ac-symbol">${r.label}</span><span class="ac-name">${r.name}</span><span class="ac-price">$${fp(r.price)}</span></div>`).join('') : '<div class="autocomplete-item" style="color:var(--muted)">No results</div>';
+  list.classList.add('open');
+}
+function selectAlertAsset(id, type) {
+  if (type === 'crypto') {
+    const c = cryptoData.find(x => x.id === id); if (!c) return;
+    alertSelectedAsset = { type:'crypto', symbol:c.symbol.toLowerCase(), name:c.name, id:c.id, currentPrice:c.current_price };
+    document.getElementById('alert-asset-input').value = c.name + ' (' + c.symbol.toUpperCase() + ')';
+    document.getElementById('alert-price').placeholder = 'Current: $' + fp(c.current_price);
+  } else {
+    const s = stocksData.find(x => x.symbol === id); if (!s) return;
+    alertSelectedAsset = { type:'stock', symbol:s.symbol, name:s.name, id:s.symbol, currentPrice:s.price };
+    document.getElementById('alert-asset-input').value = s.name + ' (' + s.symbol + ')';
+    document.getElementById('alert-price').placeholder = 'Current: $' + fp(s.price);
+  }
+  document.getElementById('alert-autocomplete').classList.remove('open');
+}
+function addAlert() {
+  if (!alertSelectedAsset) { showToast('Select an asset first'); return; }
+  const price = parseFloat(document.getElementById('alert-price').value);
+  if (!price || price <= 0) { showToast('Enter a valid target price'); return; }
+  const condition = document.getElementById('alert-condition').value;
+  alerts.push({ id:Date.now(), ...alertSelectedAsset, condition, targetPrice:price, triggered:false, createdAt:new Date().toISOString() });
+  localStorage.setItem('vault_alerts', JSON.stringify(alerts));
+  renderAlerts();
+  document.getElementById('alert-asset-input').value = ''; document.getElementById('alert-price').value = '';
+  alertSelectedAsset = null;
+  showToast('Alerte ajoutée 🔔');
+  if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
+}
+function deleteAlertByIdx(btn) {
+  const idx = parseInt(btn.getAttribute('data-idx'));
+  alerts.splice(idx, 1);
+  localStorage.setItem('vault_alerts', JSON.stringify(alerts));
+  renderAlerts();
+}
+function renderAlerts() {
+  const list = document.getElementById('alerts-list');
+  const empty = document.getElementById('alerts-empty');
+  if (!alerts.length) { list.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  list.innerHTML = alerts.map((a, idx) => {
+    const col = a.type === 'crypto' ? getCoinColor(a.symbol) : '#5a5fcf';
+    const cp = a.type === 'crypto' ? (cryptoPrices[a.symbol] || a.currentPrice) : (stockPrices[a.symbol] || a.currentPrice);
+    return `<div class="alert-card ${a.triggered?'alert-triggered':''}">
+      <div class="alert-icon" style="background:${col}18;color:${col}">${a.symbol.substring(0,3).toUpperCase()}</div>
+      <div class="alert-info">
+        <div class="alert-name">${a.name} <span style="font-size:10px;padding:2px 7px;border-radius:6px;background:${a.triggered?'#dcfce7':'var(--accent-light)'};color:${a.triggered?'#15803d':'var(--accent)'};font-weight:700;margin-left:4px">${a.triggered?'✓ Triggered':'Active'}</span></div>
+        <div class="alert-condition">${a.condition==='above'?'↑ Above':'↓ Below'} $${fp(a.targetPrice)} · now $${fp(cp)}</div>
+      </div>
+      <button class="alert-delete" data-idx="${idx}" onclick="deleteAlertByIdx(this)">×</button>
+    </div>`;
+  }).join('');
+}
+function checkAlerts() {
+  let changed = false;
+  alerts.forEach(a => {
+    if (a.triggered) return;
+    const cp = a.type === 'crypto' ? (cryptoPrices[a.symbol] || cryptoPrices[a.id] || 0) : (stockPrices[a.symbol] || 0);
+    if (!cp) return;
+    const hit = (a.condition==='above' && cp >= a.targetPrice) || (a.condition==='below' && cp <= a.targetPrice);
+    if (hit) {
+      a.triggered = true; changed = true;
+      const msg = `🔔 ${a.name} ${a.condition==='above'?'above':'below'} $${fp(a.targetPrice)} — now $${fp(cp)}`;
+      showToast(msg);
+      if ('Notification' in window && Notification.permission === 'granted') new Notification('Vault Alert 🔔', { body: msg });
+      const bell = document.getElementById('nav-alerts');
+      if (bell) { bell.style.color = 'var(--red)'; setTimeout(() => bell.style.color = '', 3000); }
+    }
+  });
+  if (changed) { localStorage.setItem('vault_alerts', JSON.stringify(alerts)); renderAlerts(); }
+  checkSmartAlerts();
+}
+
+// SMART ALERTS
+function switchAlertTab(tab, el) {
+  document.querySelectorAll('.smart-tab').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('alert-tab-price').style.display = tab==='price'?'block':'none';
+  document.getElementById('alert-tab-smart').style.display = tab==='smart'?'block':'none';
+}
+function selectSmartType(type, el) {
+  selectedSmartType = type;
+  document.querySelectorAll('.smart-type-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  const labels = { drawdown:'Seuil de perte (%)', dominance:'BTC Dominance seuil (%)', concentration:'Concentration max (%)', pnl:'P&L cible (%)', feargreed:'Fear & Greed seuil (0-100)' };
+  const defaults = { drawdown:'20', dominance:'60', concentration:'50', pnl:'50', feargreed:'20' };
+  document.getElementById('smart-threshold-label').textContent = labels[type] || 'Seuil';
+  document.getElementById('smart-threshold').value = defaults[type] || '20';
+  document.getElementById('smart-asset-input').closest('.form-group').style.display = ['dominance','feargreed'].includes(type)?'none':'block';
+}
+function handleSmartAssetSearch() {
+  const q = document.getElementById('smart-asset-input').value.toLowerCase().trim();
+  const list = document.getElementById('smart-autocomplete');
+  if (!q) { list.classList.remove('open'); return; }
+  const res = [
+    ...cryptoData.filter(c => c.name.toLowerCase().includes(q) || c.symbol.toLowerCase().includes(q)).slice(0, 4).map(c => ({ label:c.symbol.toUpperCase(), name:c.name, type:'crypto', id:c.id, symbol:c.symbol })),
+    ...stocksData.filter(s => s.name.toLowerCase().includes(q) || s.symbol.toLowerCase().includes(q)).slice(0, 3).map(s => ({ label:s.symbol, name:s.name, type:'stock', id:s.symbol, symbol:s.symbol }))
+  ].slice(0, 5);
+  list.innerHTML = res.length ? res.map(r => `<div class="autocomplete-item" onclick="selectSmartAsset('${r.id}','${r.type}','${r.symbol}','${r.name}')"><span class="ac-symbol">${r.label}</span><span class="ac-name">${r.name}</span></div>`).join('') : '<div class="autocomplete-item" style="color:var(--muted)">Aucun résultat</div>';
+  list.classList.add('open');
+}
+function selectSmartAsset(id, type, symbol, name) {
+  smartSelectedAsset = { id, type, symbol, name };
+  document.getElementById('smart-asset-input').value = name + ' (' + symbol.toUpperCase() + ')';
+  document.getElementById('smart-autocomplete').classList.remove('open');
+}
+function addSmartAlert() {
+  const threshold = parseFloat(document.getElementById('smart-threshold').value);
+  if (isNaN(threshold)) { showToast('Entre un seuil valide'); return; }
+  const typeLabels = { drawdown:'Drawdown', dominance:'BTC Dominance', concentration:'Concentration', pnl:'P&L', feargreed:'Fear & Greed' };
+  const typeIcons = { drawdown:'📉', dominance:'🌐', concentration:'⚖️', pnl:'💸', feargreed:'😱' };
+  smartAlerts.push({ id:Date.now(), type:selectedSmartType, label:typeLabels[selectedSmartType], icon:typeIcons[selectedSmartType], asset:smartSelectedAsset, threshold, condition:document.getElementById('smart-condition').value, triggered:false });
+  localStorage.setItem('vault_smart_alerts', JSON.stringify(smartAlerts));
+  renderSmartAlerts(); showToast('Alerte intelligente créée 🧠');
+  document.getElementById('smart-asset-input').value = ''; smartSelectedAsset = null;
+}
+function deleteSmartAlert(btn) {
+  const idx = parseInt(btn.getAttribute('data-idx'));
+  smartAlerts.splice(idx, 1);
+  localStorage.setItem('vault_smart_alerts', JSON.stringify(smartAlerts));
+  renderSmartAlerts();
+}
+function renderSmartAlerts() {
+  const list = document.getElementById('smart-alerts-list');
+  const empty = document.getElementById('smart-alerts-empty');
+  if (!list) return;
+  if (!smartAlerts.length) { list.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  list.innerHTML = smartAlerts.map((a, idx) => `
+    <div class="alert-card ${a.triggered?'alert-triggered':''}">
+      <div class="alert-icon" style="background:var(--accent-light);color:var(--accent);font-size:16px">${a.icon}</div>
+      <div class="alert-info">
+        <div class="alert-name">${a.label}${a.asset?' — '+a.asset.symbol.toUpperCase():' (global)'} <span style="font-size:10px;padding:2px 7px;border-radius:6px;background:${a.triggered?'#dcfce7':'var(--accent-light)'};color:${a.triggered?'#15803d':'var(--accent)'};font-weight:700;margin-left:4px">${a.triggered?'✓ Déclenché':'Actif'}</span></div>
+        <div class="alert-condition">${a.condition==='above'?'↑ Dépasse':'↓ Descend sous'} ${a.threshold}%</div>
+      </div>
+      <button class="alert-delete" data-idx="${idx}" onclick="deleteSmartAlert(this)">×</button>
+    </div>`).join('');
+}
+function checkSmartAlerts() {
+  let changed = false;
+  smartAlerts.forEach(a => {
+    if (a.triggered) return;
+    let val = null;
+    if (a.type === 'drawdown' && a.asset) {
+      const cp = a.asset.type==='crypto' ? cryptoPrices[a.asset.symbol.toLowerCase()] : stockPrices[a.asset.symbol];
+      const pa = portfolio.find(p => p.symbol.toLowerCase()===a.asset.symbol.toLowerCase());
+      if (cp && pa) val = Math.abs((cp-pa.buyPrice)/pa.buyPrice*100);
+    } else if (a.type === 'pnl' && a.asset) {
+      const cp = a.asset.type==='crypto' ? cryptoPrices[a.asset.symbol.toLowerCase()] : stockPrices[a.asset.symbol];
+      const pa = portfolio.find(p => p.symbol.toLowerCase()===a.asset.symbol.toLowerCase());
+      if (cp && pa) val = (cp-pa.buyPrice)/pa.buyPrice*100;
+    } else if (a.type === 'concentration' && a.asset) {
+      const tot = portfolio.reduce((s,p) => { const cp2 = p.type==='crypto'?(cryptoPrices[p.symbol.toLowerCase()]||p.buyPrice):(stockPrices[p.symbol]||p.buyPrice); return s+cp2*p.qty; }, 0);
+      const pa = portfolio.find(p => p.symbol.toLowerCase()===a.asset.symbol.toLowerCase());
+      if (tot > 0 && pa) { const cp2 = pa.type==='crypto'?(cryptoPrices[pa.symbol.toLowerCase()]||pa.buyPrice):(stockPrices[pa.symbol]||pa.buyPrice); val = cp2*pa.qty/tot*100; }
+    }
+    if (val === null) return;
+    const hit = (a.condition==='above' && val>=a.threshold) || (a.condition==='below' && val<=a.threshold);
+    if (hit) { a.triggered = true; changed = true; showToast(`🧠 ${a.label}: ${val.toFixed(1)}% ${a.condition==='above'?'>':'<'} ${a.threshold}%`); }
+  });
+  if (changed) { localStorage.setItem('vault_smart_alerts', JSON.stringify(smartAlerts)); renderSmartAlerts(); }
+}
+
+// METAMASK
+async function connectMetaMask() {
+  const btn = document.getElementById('metamask-btn');
+  const status = document.getElementById('metamask-status');
+  if (!window.ethereum) { status.innerHTML = '<span style="color:var(--red)">❌ MetaMask non détecté</span>'; return; }
+  btn.textContent = '⏳ Connexion...'; btn.disabled = true;
+  try {
+    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+    const address = accounts[0];
+    const short = address.substring(0,6) + '...' + address.slice(-4);
+    status.innerHTML = `<span style="color:var(--accent)">🦊 ${short} — scan en cours...</span>`;
+    let imported = 0;
+    const ethHex = await window.ethereum.request({ method: 'eth_getBalance', params: [address, 'latest'] });
+    const ethBal = parseInt(ethHex, 16) / 1e18;
+    if (ethBal > 0.0001 && !portfolio.find(p => p.symbol === 'ETH')) {
+      portfolio.push({ symbol:'ETH', name:'Ethereum', type:'crypto', qty:parseFloat(ethBal.toFixed(6)), buyPrice:cryptoPrices['ethereum']||3400, id:'ethereum' });
+      imported++;
+    }
+    await savePortfolioToCloud(); renderPortfolio();
+    btn.className = 'metamask-btn connected'; btn.textContent = `🦊 ${short} — ${imported} crypto(s) importée(s)`; btn.disabled = false;
+    status.innerHTML = `<span style="color:var(--green)">✅ ${imported} asset(s) ajouté(s) !</span>`;
+  } catch(e) {
+    btn.textContent = '🦊 Connecter MetaMask'; btn.disabled = false;
+    status.innerHTML = `<span style="color:var(--red)">❌ ${e.code===4001?'Connexion refusée':e.message}</span>`;
+  }
+}
+
+// SETTINGS
+function toggleRefresh(el) { clearInterval(refreshInterval); if (el.checked) refreshInterval = setInterval(refreshAll, 60000); }
+
+// UTILS
+function fp(n) {
+  if (!n && n !== 0) return '0.00';
+  if (n < 0.001) return n.toFixed(8);
+  if (n < 0.01) return n.toFixed(6);
+  if (n < 1) return n.toFixed(4);
+  if (n < 10) return n.toFixed(3);
+  if (n < 1000) return n.toFixed(2);
+  return n.toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
+}
+function fm(n) {
+  if (!n) return '$0';
+  if (n >= 1e12) return '$' + (n/1e12).toFixed(2) + 'T';
+  if (n >= 1e9) return '$' + (n/1e9).toFixed(2) + 'B';
+  if (n >= 1e6) return '$' + (n/1e6).toFixed(2) + 'M';
+  return '$' + n.toLocaleString();
+}
+function updateTimestamp() { document.getElementById('last-update').textContent = new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}); }
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// INIT
+document.getElementById('auth-password').addEventListener('keydown', e => { if (e.key==='Enter') handleAuth(); });
+document.getElementById('auth-email').addEventListener('keydown', e => { if (e.key==='Enter') document.getElementById('auth-password').focus(); });
+setTimeout(() => {
+  renderAlerts(); renderSmartAlerts();
+  checkAlerts();
+}, 500);
+setInterval(checkAlerts, 30000);
+setInterval(() => { if (document.getElementById('page-dashboard')?.classList.contains('active')) renderDashboard(); }, 300000);
+
+// ===== SERVICE WORKER (PWA offline) =====
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => console.log('SW registered:', reg.scope))
+      .catch(err => console.log('SW error:', err));
+  });
+}
+
+// ===== iOS PWA : désactive les gestes natifs qui donnent l'effet "site web" =====
+
+
+// Empêche le context menu sur tap long
+document.addEventListener('contextmenu', e => e.preventDefault());
+
+// ===== Fix iOS : hauteur correcte avec barre d'adresse =====
+function setVH() {
+  const vh = window.innerHeight * 0.01;
+  document.documentElement.style.setProperty('--vh', vh + 'px');
+}
+setVH();
+window.addEventListener('resize', setVH);
+window.addEventListener('orientationchange', () => setTimeout(setVH, 200));
+
+// ===== Prompt d'installation PWA (Android Chrome) =====
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  // Montre un bouton d'install si pas encore installé
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+  if (!isStandalone) {
+    showInstallBanner();
+  }
+});
+
+function showInstallBanner() {
+  // Vérif si déjà vu récemment
+  if (localStorage.getItem('vault_install_dismissed')) return;
+  const banner = document.createElement('div');
+  banner.id = 'install-banner';
+  banner.style.cssText = 'position:fixed;bottom:80px;left:12px;right:12px;background:#1a1c3a;color:#fff;border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:12px;z-index:400;box-shadow:0 8px 32px rgba(0,0,0,.4);animation:slideUp .3s ease';
+  banner.innerHTML = \`
+    <div style="font-size:28px">📲</div>
+    <div style="flex:1">
+      <div style="font-weight:700;font-size:14px">Installer Vault</div>
+      <div style="font-size:12px;opacity:.7;margin-top:2px">Ajouter sur l'écran d'accueil</div>
+    </div>
+    <button onclick="installPWA()" style="padding:8px 14px;background:#5a5fcf;color:#fff;border:none;border-radius:10px;font-family:Inter;font-weight:700;font-size:13px;cursor:pointer">Installer</button>
+    <button onclick="dismissInstall()" style="background:none;border:none;color:rgba(255,255,255,.5);font-size:20px;cursor:pointer;padding:4px">×</button>
+  \`;
+  document.body.appendChild(banner);
+}
+async function installPWA() {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  document.getElementById('install-banner')?.remove();
+}
+function dismissInstall() {
+  document.getElementById('install-banner')?.remove();
+  localStorage.setItem('vault_install_dismissed', '1');
+}
+
+// Détecte si l'app est ouverte en mode standalone (installée)
+const isInstalled = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+if (isInstalled) {
+  // En mode app installée : ajuste le style
+  document.documentElement.classList.add('pwa-installed');
+}
+
+
+// INIT SUPABASE — ici les CDN sont forcément chargés car scripts au dessus
+(function() {
+  try {
+    if (typeof supabase !== 'undefined') {
+      const { createClient } = supabase;
+      const sbClient = createClient(SUPABASE_URL, SUPABASE_KEY);
+      sb = sbClient;
+      sbClient.auth.onAuthStateChange(async (event, session) => {
+        if (session?.user) { currentUser = session.user; showApp(); }
+        else { currentUser = null; showAuth(); }
+      });
+    } else {
+      throw new Error('Supabase not loaded');
+    }
+  } catch(e) {
+    console.warn('Auth init error, using demo mode:', e.message);
+    // Mode demo sans auth
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('app-screen').style.display = 'block';
+    document.getElementById('user-avatar').textContent = 'D';
+    document.getElementById('settings-email').textContent = 'local@vault.app';
+    portfolio = JSON.parse(localStorage.getItem('vault_demo') || '[]');
+    initPortfolios();
+    loadCrypto();
+    loadStocks();
+    refreshInterval = setInterval(refreshAll, 60000);
+  }
+})();
 </script>
 </body>
 </html>
