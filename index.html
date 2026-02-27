@@ -2,11 +2,33 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+
+<!-- PWA — désactive zoom, active plein écran natif iOS -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Vault">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#5a5fcf">
+<meta name="description" content="Vault — Dashboard finance personnel. Crypto, actions, portfolio.">
+
 <title>Vault</title>
+
+<!-- Manifest & icônes PWA -->
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="icons/icon-16.png">
+
+<!-- iOS Splash Screens -->
+<link rel="apple-touch-startup-image" media="screen and (device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)" href="icons/splash-1170x2532.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3)" href="icons/splash-1284x2778.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)" href="icons/splash-1125x2436.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)" href="icons/splash-750x1334.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)" href="icons/splash-828x1792.png">
+
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -19,7 +41,35 @@
   --shadow:0 1px 4px rgba(0,0,0,.1);--shadow-md:0 4px 20px rgba(0,0,0,.12);
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh}
+
+/* ===== PWA / iOS FIXES ===== */
+html {
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+body {
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Inter',sans-serif;
+  min-height:100vh;
+  min-height: -webkit-fill-available;
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
+  -webkit-user-select: none;
+  user-select: none;
+}
+input, textarea, [contenteditable] {
+  -webkit-user-select: text;
+  user-select: text;
+  font-size: 16px !important;
+  touch-action: manipulation;
+}
+select { font-size: 16px !important; touch-action: manipulation; }
+button, [onclick] { cursor: pointer; touch-action: manipulation; }
+::-webkit-scrollbar { display: none; }
+* { scrollbar-width: none; -webkit-touch-callout: none; }
+input, textarea { -webkit-touch-callout: default; }
 #auth-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1a1c3a 0%,#2d1b69 50%,#1a1c3a 100%);padding:24px}
 .auth-box{background:var(--white);border-radius:24px;padding:36px 28px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
 .auth-logo{font-size:28px;font-weight:800;color:var(--accent);letter-spacing:-1px;text-align:center;margin-bottom:6px}
@@ -35,7 +85,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-h
 .auth-btn:hover{background:var(--accent2)}
 .auth-error{color:var(--red);font-size:12px;text-align:center;margin-top:10px;min-height:18px}
 #app-screen{display:none}
-.topnav{background:var(--white);border-bottom:1.5px solid var(--border);padding:0 16px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;box-shadow:var(--shadow)}
+.topnav{background:var(--white);border-bottom:1.5px solid var(--border);padding:env(safe-area-inset-top) 16px 0;height:calc(56px + env(safe-area-inset-top));display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;box-shadow:var(--shadow)}
 .logo{font-size:19px;font-weight:800;color:var(--accent);letter-spacing:-0.5px}
 .logo span{color:var(--accent2)}
 .topnav-right{display:flex;align-items:center;gap:8px}
@@ -45,12 +95,12 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-h
 .refresh-btn svg{width:15px;height:15px}
 .user-btn{width:34px;height:34px;border-radius:10px;border:1.5px solid var(--border);background:var(--accent-light);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--accent);font-size:13px;font-weight:700}
 .nav-time{font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);font-weight:500}
-.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1.5px solid var(--border);display:flex;z-index:50;padding-bottom:env(safe-area-inset-bottom);box-shadow:0 -2px 12px rgba(0,0,0,.07)}
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1.5px solid var(--border);display:flex;z-index:50;padding-bottom:max(env(safe-area-inset-bottom), 8px);box-shadow:0 -2px 12px rgba(0,0,0,.07)}
 .nav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:10px 0;cursor:pointer;transition:.2s;color:var(--muted);border:none;background:none;font-family:'Inter',sans-serif}
 .nav-item.active{color:var(--accent)}
 .nav-item svg{width:20px;height:20px;stroke-width:1.8}
 .nav-item span{font-size:10px;font-weight:600;letter-spacing:.2px}
-.page{display:none;padding:16px 16px 90px;max-width:900px;margin:0 auto;width:100%}
+.page{display:none;padding:16px 16px calc(90px + env(safe-area-inset-bottom));max-width:900px;margin:0 auto;width:100%}
 .page.active{display:block}
 .page-title{font-size:22px;font-weight:800;color:var(--text);letter-spacing:-0.5px;margin-bottom:3px}
 .page-sub{color:var(--text3);font-size:13px;font-weight:500;margin-bottom:18px}
@@ -1664,6 +1714,89 @@ setTimeout(() => {
 }, 500);
 setInterval(checkAlerts, 30000);
 setInterval(() => { if (document.getElementById('page-dashboard')?.classList.contains('active')) renderDashboard(); }, 300000);
+
+// ===== SERVICE WORKER (PWA offline) =====
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => console.log('SW registered:', reg.scope))
+      .catch(err => console.log('SW error:', err));
+  });
+}
+
+// ===== iOS PWA : désactive les gestes natifs qui donnent l'effet "site web" =====
+// Empêche le pull-to-refresh Chrome Android
+document.addEventListener('touchmove', function(e) {
+  if (e.scale !== 1) e.preventDefault();
+}, { passive: false });
+
+// Empêche le pinch-to-zoom
+let lastTouchEnd = 0;
+document.addEventListener('touchend', function(e) {
+  const now = Date.now();
+  if (now - lastTouchEnd <= 300) e.preventDefault();
+  lastTouchEnd = now;
+}, false);
+
+// Empêche le context menu sur tap long (images, liens)
+document.addEventListener('contextmenu', e => e.preventDefault());
+
+// ===== Fix iOS : hauteur correcte avec barre d'adresse =====
+function setVH() {
+  const vh = window.innerHeight * 0.01;
+  document.documentElement.style.setProperty('--vh', vh + 'px');
+}
+setVH();
+window.addEventListener('resize', setVH);
+window.addEventListener('orientationchange', () => setTimeout(setVH, 200));
+
+// ===== Prompt d'installation PWA (Android Chrome) =====
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  // Montre un bouton d'install si pas encore installé
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+  if (!isStandalone) {
+    showInstallBanner();
+  }
+});
+
+function showInstallBanner() {
+  // Vérif si déjà vu récemment
+  if (localStorage.getItem('vault_install_dismissed')) return;
+  const banner = document.createElement('div');
+  banner.id = 'install-banner';
+  banner.style.cssText = 'position:fixed;bottom:80px;left:12px;right:12px;background:#1a1c3a;color:#fff;border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:12px;z-index:400;box-shadow:0 8px 32px rgba(0,0,0,.4);animation:slideUp .3s ease';
+  banner.innerHTML = \`
+    <div style="font-size:28px">📲</div>
+    <div style="flex:1">
+      <div style="font-weight:700;font-size:14px">Installer Vault</div>
+      <div style="font-size:12px;opacity:.7;margin-top:2px">Ajouter sur l'écran d'accueil</div>
+    </div>
+    <button onclick="installPWA()" style="padding:8px 14px;background:#5a5fcf;color:#fff;border:none;border-radius:10px;font-family:Inter;font-weight:700;font-size:13px;cursor:pointer">Installer</button>
+    <button onclick="dismissInstall()" style="background:none;border:none;color:rgba(255,255,255,.5);font-size:20px;cursor:pointer;padding:4px">×</button>
+  \`;
+  document.body.appendChild(banner);
+}
+async function installPWA() {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  document.getElementById('install-banner')?.remove();
+}
+function dismissInstall() {
+  document.getElementById('install-banner')?.remove();
+  localStorage.setItem('vault_install_dismissed', '1');
+}
+
+// Détecte si l'app est ouverte en mode standalone (installée)
+const isInstalled = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+if (isInstalled) {
+  // En mode app installée : ajuste le style
+  document.documentElement.classList.add('pwa-installed');
+}
 </script>
 </body>
 </html>
