@@ -92,6 +92,7 @@ body { background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; 
 }
 .nav-item { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; padding:10px 0; cursor:pointer; transition:.2s; color:var(--muted); border:none; background:none; font-family:'Inter',sans-serif; }
 .nav-item.active { color:var(--accent); }
+.nav-item.active#nav-dashboard { color:#fff; }
 .nav-item svg { width:20px; height:20px; stroke-width:1.8; }
 .nav-item span { font-size:10px; font-weight:600; letter-spacing:.2px; }
 
@@ -646,9 +647,9 @@ input:checked + .toggle-slider:before { transform:translateX(18px); }
       <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
       <span>Portfolio</span>
     </button>
-    <button class="nav-item" onclick="goTo('dashboard',this)" id="nav-dashboard">
-      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-      <span>Dashboard</span>
+    <button class="nav-item" onclick="goTo('dashboard',this)" id="nav-dashboard" style="position:relative;top:-10px;background:var(--accent);border-radius:16px;padding:10px 14px;color:#fff;box-shadow:0 4px 16px rgba(90,95,207,.4);">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:22px;height:22px"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      <span style="font-size:11px;font-weight:800">Dashboard</span>
     </button>
     <button class="nav-item" onclick="goTo('news',this)">
       <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8M15 18h-5M10 6h8v4h-8V6Z"/></svg>
@@ -1959,29 +1960,42 @@ async function renderDashboard() {
   pfCard.parentElement.className = 'signal-card ' + (pnl >= 0 ? 'green' : 'red');
   document.getElementById('dash-pf-pnl').textContent = (pnl >= 0 ? '+' : '') + fp(pnl) + ' (' + (pnlPct >= 0 ? '+' : '') + pnlPct.toFixed(1) + '%)';
 
-  // Fear & Greed + BTC dominance from CoinGecko global
+  // Données marché via CoinGecko (compatible iOS/Safari)
   try {
-    const [fgRes, globalRes] = await Promise.all([
-      fetch('https://api.alternative.me/fng/'),
-      fetch('https://api.coingecko.com/api/v3/global')
-    ]);
-    const fgData = await fgRes.json();
+    const globalRes = await fetch('https://api.coingecko.com/api/v3/global');
     const globalData = await globalRes.json();
+    const gd = globalData.data;
 
-    const fgVal = parseInt(fgData.data[0].value);
+    // Fear & Greed via alternative.me avec timeout de 4s
+    let fgVal = 50, fgLabel = 'Neutral';
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 4000);
+      const fgRes = await fetch('https://api.alternative.me/fng/?limit=1', { signal: ctrl.signal });
+      clearTimeout(t);
+      const fgData = await fgRes.json();
+      fgVal = parseInt(fgData.data[0].value);
+      fgLabel = fgData.data[0].value_classification;
+    } catch(e) {
+      // Fallback estimé depuis market cap change
+      const mc24h = gd.market_cap_change_percentage_24h_usd || 0;
+      fgVal = Math.min(100, Math.max(0, 50 + mc24h * 3));
+      fgLabel = fgVal < 25 ? 'Extreme Fear' : fgVal < 45 ? 'Fear' : fgVal < 55 ? 'Neutral' : fgVal < 75 ? 'Greed' : 'Extreme Greed';
+    }
+
     const fgClass = fgVal < 25 ? 'red' : fgVal < 45 ? 'orange' : fgVal < 75 ? 'green' : 'orange';
     document.getElementById('dash-fg').textContent = fgVal;
     document.getElementById('dash-fg').parentElement.className = 'signal-card ' + fgClass;
-    document.getElementById('dash-fg-sub').textContent = fgData.data[0].value_classification;
+    document.getElementById('dash-fg-sub').textContent = fgLabel;
 
-    const dom = globalData.data.market_cap_percentage?.btc?.toFixed(1) || '—';
+    const dom = gd.market_cap_percentage?.btc?.toFixed(1) || '—';
     const domCard = document.getElementById('dash-dom');
     domCard.textContent = dom + '%';
     domCard.parentElement.className = 'signal-card ' + (parseFloat(dom) > 55 ? 'orange' : 'purple');
     document.getElementById('dash-dom-sub').textContent = parseFloat(dom) > 55 ? 'BTC dominant — altcoins sous pression' : 'Altseason possible';
 
-    const mcap = globalData.data.total_market_cap?.usd || 0;
-    const mcapChange = globalData.data.market_cap_change_percentage_24h_usd || 0;
+    const mcap = gd.total_market_cap?.usd || 0;
+    const mcapChange = gd.market_cap_change_percentage_24h_usd || 0;
     document.getElementById('dash-mktcap').textContent = mcap > 1e12 ? (mcap/1e12).toFixed(2)+'T' : (mcap/1e9).toFixed(0)+'B';
     document.getElementById('dash-mktcap').parentElement.className = 'signal-card ' + (mcapChange >= 0 ? 'green' : 'red');
     document.getElementById('dash-mktcap-sub').textContent = (mcapChange >= 0 ? '▲' : '▼') + Math.abs(mcapChange).toFixed(1) + '% sur 24h';
