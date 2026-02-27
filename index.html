@@ -35,7 +35,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-h
 .auth-btn:hover{background:var(--accent2)}
 .auth-error{color:var(--red);font-size:12px;text-align:center;margin-top:10px;min-height:18px}
 #app-screen{display:none}
-.topnav{background:var(--white);border-bottom:1.5px solid var(--border);padding:0 16px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:var(--shadow)}
+.topnav{background:var(--white);border-bottom:1.5px solid var(--border);padding:0 16px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;box-shadow:var(--shadow)}
 .logo{font-size:19px;font-weight:800;color:var(--accent);letter-spacing:-0.5px}
 .logo span{color:var(--accent2)}
 .topnav-right{display:flex;align-items:center;gap:8px}
@@ -45,7 +45,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-h
 .refresh-btn svg{width:15px;height:15px}
 .user-btn{width:34px;height:34px;border-radius:10px;border:1.5px solid var(--border);background:var(--accent-light);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--accent);font-size:13px;font-weight:700}
 .nav-time{font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);font-weight:500}
-.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1.5px solid var(--border);display:flex;z-index:100;padding-bottom:env(safe-area-inset-bottom);box-shadow:0 -2px 12px rgba(0,0,0,.07)}
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1.5px solid var(--border);display:flex;z-index:50;padding-bottom:env(safe-area-inset-bottom);box-shadow:0 -2px 12px rgba(0,0,0,.07)}
 .nav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:10px 0;cursor:pointer;transition:.2s;color:var(--muted);border:none;background:none;font-family:'Inter',sans-serif}
 .nav-item.active{color:var(--accent)}
 .nav-item svg{width:20px;height:20px;stroke-width:1.8}
@@ -104,10 +104,26 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-h
 .remove-btn{margin-top:12px;width:100%;padding:9px;background:var(--red-light);color:var(--red);border:1.5px solid #fed7d7;border-radius:10px;cursor:pointer;font-family:'Inter',sans-serif;font-size:12px;font-weight:700}
 .add-btn{width:100%;padding:14px;border:2px dashed var(--muted2);background:transparent;color:var(--text3);border-radius:14px;font-family:'Inter',sans-serif;font-size:14px;font-weight:600;cursor:pointer;transition:.2s;margin-top:4px}
 .add-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-light)}
-.modal-overlay{position:fixed;inset:0;background:rgba(15,17,23,.5);display:none;align-items:flex-end;justify-content:center;z-index:200;backdrop-filter:blur(6px)}
-.modal-overlay.open{display:flex}
-.modal{background:var(--white);border-radius:24px 24px 0 0;padding:28px 24px 40px;width:100%;max-width:500px;max-height:92vh;overflow-y:auto;box-shadow:0 -8px 40px rgba(0,0,0,.2);animation:slideUp .3s ease}
-@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+
+/* FIX CRITIQUE : pointer-events:none quand fermée */
+.modal-overlay{
+  position:fixed;inset:0;
+  background:rgba(15,17,23,.5);
+  display:flex;
+  align-items:flex-end;justify-content:center;
+  z-index:200;
+  backdrop-filter:blur(6px);
+  opacity:0;
+  pointer-events:none; /* CLEF : bloque les clics quand fermée */
+  transition:opacity .25s;
+}
+.modal-overlay.open{
+  opacity:1;
+  pointer-events:auto;
+}
+
+.modal{background:var(--white);border-radius:24px 24px 0 0;padding:28px 24px 40px;width:100%;max-width:500px;max-height:92vh;overflow-y:auto;box-shadow:0 -8px 40px rgba(0,0,0,.2);transform:translateY(100%);transition:transform .3s ease}
+.modal-overlay.open .modal{transform:translateY(0)}
 .modal-handle{width:36px;height:4px;background:var(--muted2);border-radius:2px;margin:0 auto 20px}
 .modal h3{font-size:18px;font-weight:800;margin-bottom:20px;color:var(--text)}
 .form-group{margin-bottom:14px;position:relative}
@@ -558,7 +574,7 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
 
 <script>
 // ============================================================
-// CONFIG — Remplace avec tes clés
+// CONFIG
 // ============================================================
 const SUPABASE_URL = 'https://atrbgokwbyhdcebqqxse.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF0cmJnb2t3YnloZGNlYnFxeHNlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIwMjI3NDUsImV4cCI6MjA4NzU5ODc0NX0.Rg9Z6v12Ov7n0XXd-6T-lOmw_Cw7T21Rx3MZScNCl_Q';
@@ -576,7 +592,8 @@ let alerts = JSON.parse(localStorage.getItem('vault_alerts') || '[]');
 let smartAlerts = JSON.parse(localStorage.getItem('vault_smart_alerts') || '[]');
 let alertSelectedAsset = null, smartSelectedAsset = null, selectedSmartType = 'drawdown';
 let portfolios = [], currentPortfolioIdx = 0;
-let portfolioChart = null, chartPeriod = '7d', portfolioHistory = [];
+let portfolioChart = null, chartPeriod = '7d';
+let portfolioHistory = []; // FIXE : déclaration unique
 let sb = null;
 
 // SUPABASE
@@ -697,7 +714,6 @@ async function loadCrypto() {
     renderCryptoList(cryptoData);
     document.getElementById('crypto-sub').textContent = cryptoData.length + ' coins · live prices';
     updateTimestamp();
-    // Pages supplémentaires en arrière plan
     for (let p = 2; p <= 5; p++) {
       await new Promise(r => setTimeout(r, 1200));
       try {
@@ -1017,8 +1033,11 @@ async function clearPortfolio() {
   if (confirm('Remove all assets?')) { portfolio = []; renderPortfolio(); await savePortfolioToCloud(); showToast('Portfolio cleared'); }
 }
 
-// MODAL
-function openModal() { document.getElementById('modal').classList.add('open'); setTimeout(() => document.getElementById('asset-search-input').focus(), 300); }
+// MODAL — FIXE : utilise opacity + pointer-events au lieu de display:none/flex
+function openModal() {
+  document.getElementById('modal').classList.add('open');
+  setTimeout(() => document.getElementById('asset-search-input').focus(), 300);
+}
 function closeModal() {
   document.getElementById('modal').classList.remove('open');
   clearSelectedAsset();
@@ -1072,7 +1091,11 @@ async function addAsset() {
   portfolio.push({ type:selectedAsset.type, symbol:selectedAsset.symbol, name:selectedAsset.name, qty, buyPrice:bp });
   closeModal(); renderPortfolio(); await savePortfolioToCloud(); showToast('Asset added ✓');
 }
-document.getElementById('modal').addEventListener('click', e => { if (e.target === document.getElementById('modal')) closeModal(); });
+
+// Fermeture modale au clic sur l'overlay
+document.getElementById('modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal')) closeModal();
+});
 
 // INDICES
 async function renderIndices() {
@@ -1121,20 +1144,15 @@ async function renderIndices() {
     <div class="index-card full"><div class="index-label">Active Cryptocurrencies</div><div class="index-value">${Number(coins).toLocaleString()}</div><div class="index-sub">Listed on CoinGecko</div></div>`;
 }
 
-// ============================================================
-// DASHBOARD — Zero fake data, proper error handling
-// ============================================================
+// DASHBOARD
 async function renderDashboard() {
   const now = new Date();
   document.getElementById('dash-date').textContent = now.toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long' });
-
-  // Reset cards
   ['dash-fg','dash-dom','dash-mktcap','dash-pf-val'].forEach(id => document.getElementById(id).textContent = '…');
   document.getElementById('dash-signals-list').innerHTML = '<div class="loading"><div class="spinner"></div><p>Chargement des données marché...</p></div>';
   document.getElementById('dash-opportunities').innerHTML = '<div class="loading"><div class="spinner"></div><p>Analyse en cours...</p></div>';
   document.getElementById('dash-portfolio-breakdown').innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted);font-size:13px">Chargement...</div>';
 
-  // ---- Portfolio (local data, always available) ----
   const total = portfolio.reduce((s, a) => {
     const p = a.type === 'crypto'
       ? (cryptoPrices[a.symbol.toLowerCase()] || cryptoPrices[a.id] || null)
@@ -1154,7 +1172,6 @@ async function renderDashboard() {
     document.getElementById('dash-pf-pnl').textContent = (pnl>=0?'+':'') + fp(pnl) + ' (' + (pnlPct>=0?'+':'') + pnlPct.toFixed(1) + '%)';
   }
 
-  // ---- Fetch market data in parallel with timeout ----
   const ft = (url, ms=7000) => {
     const c = new AbortController();
     const t = setTimeout(() => c.abort(), ms);
@@ -1162,21 +1179,17 @@ async function renderDashboard() {
   };
 
   let gd = null, fgVal = null, fgLabel = null;
-
   const [globalRes, fgRes] = await Promise.allSettled([
     ft('https://api.coingecko.com/api/v3/global', 8000).then(r => { if (!r.ok) throw new Error('HTTP '+r.status); return r.json(); }),
     ft('https://api.alternative.me/fng/?limit=1', 6000).then(r => { if (!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
   ]);
 
   if (globalRes.status === 'fulfilled' && globalRes.value?.data) gd = globalRes.value.data;
-  else console.warn('CoinGecko /global failed:', globalRes.reason?.message);
-
   if (fgRes.status === 'fulfilled' && fgRes.value?.data?.[0]) {
     fgVal = parseInt(fgRes.value.data[0].value);
     fgLabel = fgRes.value.data[0].value_classification;
-  } else console.warn('Fear & Greed failed:', fgRes.reason?.message);
+  }
 
-  // ---- Update Fear & Greed card ----
   const fgEl = document.getElementById('dash-fg');
   const fgSub = document.getElementById('dash-fg-sub');
   const fgCard = document.getElementById('card-fg');
@@ -1184,12 +1197,10 @@ async function renderDashboard() {
     fgEl.textContent = fgVal; fgSub.textContent = fgLabel;
     fgCard.className = 'signal-card ' + (fgVal < 25 ? 'red' : fgVal < 45 ? 'orange' : fgVal < 75 ? 'green' : 'orange');
   } else {
-    fgEl.textContent = 'N/A'; fgSub.textContent = 'Indispo — clique pour réessayer';
-    fgCard.className = 'signal-card'; fgCard.style.cursor = 'pointer';
-    fgCard.onclick = () => renderDashboard();
+    fgEl.textContent = 'N/A'; fgSub.textContent = 'Indispo'; fgCard.className = 'signal-card';
+    fgCard.style.cursor = 'pointer'; fgCard.onclick = () => renderDashboard();
   }
 
-  // ---- Update BTC Dominance card ----
   const domEl = document.getElementById('dash-dom');
   const domSub = document.getElementById('dash-dom-sub');
   const domCard = document.getElementById('card-dom');
@@ -1200,11 +1211,8 @@ async function renderDashboard() {
     domEl.textContent = dom ? dom.toFixed(1) + '%' : '—';
     domCard.className = 'signal-card ' + (dom > 55 ? 'orange' : 'purple');
     domSub.textContent = btcP ? '$' + fp(btcP) : '—';
-  } else {
-    domEl.textContent = 'N/A'; domSub.textContent = 'API indisponible'; domCard.className = 'signal-card';
-  }
+  } else { domEl.textContent = 'N/A'; domSub.textContent = 'API indisponible'; domCard.className = 'signal-card'; }
 
-  // ---- Update Market Cap card ----
   const mcapEl = document.getElementById('dash-mktcap');
   const mcapSub = document.getElementById('dash-mktcap-sub');
   const mcapCard = document.getElementById('card-mktcap');
@@ -1215,66 +1223,45 @@ async function renderDashboard() {
     mcapEl.textContent = mcap > 1e12 ? (mcap/1e12).toFixed(2)+'T' : mcap > 1e9 ? (mcap/1e9).toFixed(0)+'B' : '—';
     mcapCard.className = 'signal-card ' + (mcapChange >= 0 ? 'green' : 'red');
     mcapSub.textContent = mcapChange !== null ? (mcapChange>=0?'▲':'▼') + Math.abs(mcapChange).toFixed(1) + '% 24h' : '—';
-  } else {
-    mcapEl.textContent = 'N/A'; mcapSub.textContent = 'API indisponible'; mcapCard.className = 'signal-card';
-  }
+  } else { mcapEl.textContent = 'N/A'; mcapSub.textContent = 'API indisponible'; mcapCard.className = 'signal-card'; }
 
-  // ---- Build signals ----
   const signals = [];
-  const bothFailed = !gd && fgVal === null;
-  if (bothFailed) {
+  if (!gd && fgVal === null) {
     signals.push({ icon:'⚠️', text:'Données marché indisponibles', detail:'APIs en rate limit ou hors ligne. Réessaie dans 1 minute.', badge:'warn', badgeTxt:'API Error' });
   } else {
     if (fgVal !== null) {
-      if (fgVal <= 20) signals.push({ icon:'😱', text:`Extreme Fear (${fgVal}) — zone d'opportunité`, detail:"Historiquement les meilleurs points d'entrée. Reste prudent.", badge:'danger', badgeTxt:'Extreme Fear' });
+      if (fgVal <= 20) signals.push({ icon:'😱', text:`Extreme Fear (${fgVal}) — zone d'opportunité`, detail:"Historiquement les meilleurs points d'entrée.", badge:'danger', badgeTxt:'Extreme Fear' });
       else if (fgVal >= 80) signals.push({ icon:'🤑', text:`Extreme Greed (${fgVal}) — marché surchauffé`, detail:'Risque de correction. Considère sécuriser des profits.', badge:'warn', badgeTxt:'Extreme Greed' });
     }
     if (dom !== null) {
-      if (dom > 60) signals.push({ icon:'👑', text:`BTC très dominant (${dom.toFixed(1)}%)`, detail:'Altcoins sous pression. Reste sur BTC/ETH.', badge:'warn', badgeTxt:'BTC Saison' });
+      if (dom > 60) signals.push({ icon:'👑', text:`BTC très dominant (${dom.toFixed(1)}%)`, detail:'Altcoins sous pression.', badge:'warn', badgeTxt:'BTC Saison' });
       else if (dom < 45) signals.push({ icon:'🚀', text:`BTC dominance faible (${dom.toFixed(1)}%)`, detail:'Rotation vers les altcoins possible.', badge:'info', badgeTxt:'Alt Saison' });
     }
     if (mcapChange !== null && Math.abs(mcapChange) >= 5) {
       signals.push({ icon: mcapChange>0?'📈':'📉', text:`Marché global ${mcapChange>0?'+':''}${mcapChange.toFixed(1)}% en 24h`, detail:'Mouvement important. Surveille tes positions.', badge: mcapChange>0?'ok':'danger', badgeTxt: mcapChange>0?'Haussier':'Baissier' });
     }
   }
-
-  // Portfolio signals (real data only)
-  if (portfolio.length > 0) {
-    cryptoData.forEach(c => {
-      const inPf = portfolio.find(a => a.id === c.id || a.symbol.toLowerCase() === c.symbol.toLowerCase());
-      const chg = c.price_change_percentage_24h;
-      if (inPf && chg !== null && Math.abs(chg) >= 10) {
-        signals.push({ icon: chg>0?'🚀':'📉', text:`${c.name} ${chg>0?'+':''}${chg.toFixed(1)}% aujourd'hui`, detail:`Dans ton portfolio — $${fp(c.current_price)}`, badge: chg>0?'ok':'danger', badgeTxt: chg>0?'Hausse':'Chute' });
-      }
-    });
-    portfolio.forEach(a => {
-      const cp = a.type === 'crypto' ? (cryptoPrices[a.symbol.toLowerCase()] || cryptoPrices[a.id] || null) : (stockPrices[a.symbol] || null);
-      if (cp === null) return;
-      const dd = (cp - a.buyPrice) / a.buyPrice * 100;
-      if (dd <= -25) signals.push({ icon:'🩸', text:`${a.symbol.toUpperCase()} en chute de ${dd.toFixed(0)}%`, detail:`Acheté $${fp(a.buyPrice)}, maintenant $${fp(cp)}`, badge:'danger', badgeTxt:'Drawdown' });
-      if (dd >= 50) signals.push({ icon:'💰', text:`${a.symbol.toUpperCase()} +${dd.toFixed(0)}% — prendre des profits ?`, detail:`Acheté $${fp(a.buyPrice)}, maintenant $${fp(cp)}`, badge:'warn', badgeTxt:'Profits' });
-    });
-    if (total > 0) {
-      const sorted = portfolio.map(a => {
-        const cp = a.type === 'crypto' ? (cryptoPrices[a.symbol.toLowerCase()] || a.buyPrice) : (stockPrices[a.symbol] || a.buyPrice);
-        return { symbol: a.symbol, val: cp * a.qty };
-      }).sort((x,y) => y.val - x.val);
-      if (sorted[0] && sorted[0].val / total > 0.6) {
-        signals.push({ icon:'⚖️', text:`${sorted[0].symbol.toUpperCase()} = ${(sorted[0].val/total*100).toFixed(0)}% du portfolio`, detail:'Surconcentration. Pense à diversifier.', badge:'warn', badgeTxt:'Concentration' });
-      }
+  cryptoData.forEach(c => {
+    const inPf = portfolio.find(a => a.id === c.id || a.symbol.toLowerCase() === c.symbol.toLowerCase());
+    const chg = c.price_change_percentage_24h;
+    if (inPf && chg !== null && Math.abs(chg) >= 10) {
+      signals.push({ icon: chg>0?'🚀':'📉', text:`${c.name} ${chg>0?'+':''}${chg.toFixed(1)}% aujourd'hui`, detail:`Dans ton portfolio — $${fp(c.current_price)}`, badge: chg>0?'ok':'danger', badgeTxt: chg>0?'Hausse':'Chute' });
     }
-  }
+  });
+  portfolio.forEach(a => {
+    const cp = a.type === 'crypto' ? (cryptoPrices[a.symbol.toLowerCase()] || cryptoPrices[a.id] || null) : (stockPrices[a.symbol] || null);
+    if (cp === null) return;
+    const dd = (cp - a.buyPrice) / a.buyPrice * 100;
+    if (dd <= -25) signals.push({ icon:'🩸', text:`${a.symbol.toUpperCase()} en chute de ${dd.toFixed(0)}%`, detail:`Acheté $${fp(a.buyPrice)}, maintenant $${fp(cp)}`, badge:'danger', badgeTxt:'Drawdown' });
+    if (dd >= 50) signals.push({ icon:'💰', text:`${a.symbol.toUpperCase()} +${dd.toFixed(0)}% — prendre des profits ?`, detail:`Acheté $${fp(a.buyPrice)}, maintenant $${fp(cp)}`, badge:'warn', badgeTxt:'Profits' });
+  });
 
   document.getElementById('dash-signals-list').innerHTML = signals.length
     ? signals.map(s => `<div class="watch-item"><div class="watch-icon">${s.icon}</div><div class="watch-info"><div class="watch-text">${s.text}</div><div class="watch-detail">${s.detail}</div></div><span class="watch-badge ${s.badge}">${s.badgeTxt}</span></div>`).join('')
-    : '<div class="watch-item"><div class="watch-icon">✅</div><div class="watch-info"><div class="watch-text">Aucun signal particulier</div><div class="watch-detail">Marché calme. Surveille tes alertes.</div></div><span class="watch-badge ok">OK</span></div>';
+    : '<div class="watch-item"><div class="watch-icon">✅</div><div class="watch-info"><div class="watch-text">Aucun signal particulier</div><div class="watch-detail">Marché calme.</div></div><span class="watch-badge ok">OK</span></div>';
 
-  // Portfolio breakdown
   renderDashPortfolio(total);
-
-  // Opportunities
   renderDashOpportunities(fgVal, dom, mcapChange);
-
   document.getElementById('dash-sub').textContent = 'Mis à jour à ' + now.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
 }
 
@@ -1302,21 +1289,20 @@ function renderDashPortfolio(total) {
 function renderDashOpportunities(fgVal, dom, mcapChange) {
   const el = document.getElementById('dash-opportunities');
   const ops = [];
-  if (fgVal !== null && fgVal <= 30) ops.push({ icon:'💎', text:'Zone Fear — opportunité d\'accumulation', detail:`Fear & Greed à ${fgVal}. Historiquement bon point d'entrée.`, badge:'info', badgeTxt:'DCA' });
-  if (dom !== null && dom < 48) ops.push({ icon:'🌊', text:'Altseason possible — ETH, SOL, BNB', detail:`BTC dominance à ${dom.toFixed(1)}% = rotation vers les alts.`, badge:'info', badgeTxt:'Alts' });
-  if (mcapChange !== null && mcapChange < -5) ops.push({ icon:'🛒', text:`Correction ${mcapChange.toFixed(1)}% — entrée potentielle`, detail:'Marché en correction. DCA progressif plutôt qu\'en one-shot.', badge:'info', badgeTxt:'Entrée' });
+  if (fgVal !== null && fgVal <= 30) ops.push({ icon:'💎', text:'Zone Fear — opportunité d\'accumulation', detail:`Fear & Greed à ${fgVal}.`, badge:'info', badgeTxt:'DCA' });
+  if (dom !== null && dom < 48) ops.push({ icon:'🌊', text:'Altseason possible — ETH, SOL, BNB', detail:`BTC dominance à ${dom.toFixed(1)}%.`, badge:'info', badgeTxt:'Alts' });
+  if (mcapChange !== null && mcapChange < -5) ops.push({ icon:'🛒', text:`Correction ${mcapChange.toFixed(1)}% — entrée potentielle`, detail:'DCA progressif plutôt qu\'en one-shot.', badge:'info', badgeTxt:'Entrée' });
   portfolio.forEach(a => {
     const cp = a.type === 'crypto' ? (cryptoPrices[a.symbol.toLowerCase()] || cryptoPrices[a.id] || null) : (stockPrices[a.symbol] || null);
     if (cp === null) return;
     const pnlPct = (cp - a.buyPrice) / a.buyPrice * 100;
     if (pnlPct >= 50) ops.push({ icon:'💰', text:`${a.symbol.toUpperCase()} +${pnlPct.toFixed(0)}% — sécuriser des profits ?`, detail:`Acheté $${fp(a.buyPrice)}, maintenant $${fp(cp)}`, badge:'warn', badgeTxt:'Profits' });
   });
-  if (!ops.length) ops.push({ icon:'👀', text:'Marché neutre — pas de signal clair', detail:'Attends Fear & Greed extrême ou une correction pour agir.', badge:'info', badgeTxt:'Attente' });
+  if (!ops.length) ops.push({ icon:'👀', text:'Marché neutre — pas de signal clair', detail:'Attends Fear & Greed extrême pour agir.', badge:'info', badgeTxt:'Attente' });
   el.innerHTML = ops.map(o => `<div class="watch-item"><div class="watch-icon">${o.icon}</div><div class="watch-info"><div class="watch-text">${o.text}</div><div class="watch-detail">${o.detail}</div></div><span class="watch-badge ${o.badge}">${o.badgeTxt}</span></div>`).join('');
 }
 
 // CHART
-let portfolioHistory = [];
 function getHistoryKey() { return 'vault_history_' + (portfolios[currentPortfolioIdx]?.id || '0'); }
 function recordPortfolioSnapshot() {
   const total = portfolio.reduce((s, a) => {
@@ -1417,7 +1403,7 @@ async function loadNews() {
       allNews = (data2.data || []).slice(0, 30).map(n => ({ title: n.title, source: n.news_site, time: 'recent', tag: 'crypto', url: n.url, related: [n.title.toLowerCase()] }));
       renderNews();
     } catch(e2) {
-      document.getElementById('news-list').innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">❌ Impossible de charger les news. Vérifie ta connexion.</div>';
+      document.getElementById('news-list').innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">❌ Impossible de charger les news.</div>';
     }
   }
 }
