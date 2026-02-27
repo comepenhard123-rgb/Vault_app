@@ -30,8 +30,8 @@
 <link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)" href="icons/splash-828x1792.png">
 
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
 <style>
 :root {
   --bg:#f0f2f7;--white:#ffffff;--surface2:#f4f5f8;--border:#dde1ea;
@@ -636,27 +636,36 @@ let portfolioChart = null, chartPeriod = '7d';
 let portfolioHistory = []; // FIXE : déclaration unique
 let sb = null;
 
-// SUPABASE
+// SUPABASE — init sécurisée avec fallback si CDN non chargé
 const supabaseReady = SUPABASE_URL.includes('supabase.co');
-if (supabaseReady) {
-  const { createClient } = supabase;
-  sb = createClient(SUPABASE_URL, SUPABASE_KEY);
-  sb.auth.onAuthStateChange(async (event, session) => {
-    if (session?.user) { currentUser = session.user; showApp(); }
-    else { currentUser = null; showAuth(); }
-  });
-} else {
-  setTimeout(() => {
-    document.getElementById('auth-screen').style.display = 'none';
-    document.getElementById('app-screen').style.display = 'block';
-    document.getElementById('user-avatar').textContent = 'D';
-    document.getElementById('settings-email').textContent = 'demo@vault.app';
+
+function initSupabase() {
+  try {
+    if (supabaseReady && typeof supabase !== 'undefined') {
+      const { createClient } = supabase;
+      sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+      sb.auth.onAuthStateChange(async (event, session) => {
+        if (session?.user) { currentUser = session.user; showApp(); }
+        else { currentUser = null; showAuth(); }
+      });
+    } else {
+      // Mode demo : pas de Supabase
+      portfolio = JSON.parse(localStorage.getItem('vault_demo') || '[]');
+      initPortfolios();
+      loadCrypto(); loadStocks();
+      refreshInterval = setInterval(refreshAll, 60000);
+    }
+  } catch(e) {
+    console.error('Supabase init error:', e);
+    // Fallback mode demo si erreur
     portfolio = JSON.parse(localStorage.getItem('vault_demo') || '[]');
     initPortfolios();
     loadCrypto(); loadStocks();
-    refreshInterval = setInterval(refreshAll, 60000);
-  }, 100);
+  }
 }
+
+// Lance après que TOUS les scripts (defer inclus) sont chargés
+window.addEventListener('load', initSupabase);
 
 // AUTH
 function switchTab(mode) {
@@ -670,21 +679,34 @@ async function handleAuth() {
   const email = document.getElementById('auth-email').value.trim();
   const pass = document.getElementById('auth-password').value;
   const btn = document.getElementById('auth-submit');
-  if (!email || !pass) { document.getElementById('auth-error').textContent = 'Please fill all fields'; return; }
+  const errEl = document.getElementById('auth-error');
+  if (!email || !pass) { errEl.textContent = 'Please fill all fields'; return; }
   btn.textContent = 'Loading...'; btn.disabled = true;
-  document.getElementById('auth-error').textContent = '';
+  errEl.textContent = '';
+  
+  // Vérifie que Supabase est chargé
+  if (!sb) {
+    errEl.style.color = 'var(--red)';
+    errEl.textContent = 'Service unavailable — try again in a moment';
+    btn.textContent = authMode === 'login' ? 'Sign In' : 'Create Account';
+    btn.disabled = false;
+    // Essaie de réinitialiser
+    initSupabase();
+    return;
+  }
+  
   try {
     const result = authMode === 'login'
       ? await sb.auth.signInWithPassword({ email, password: pass })
       : await sb.auth.signUp({ email, password: pass });
     if (result.error) throw result.error;
     if (authMode === 'signup' && !result.data.session) {
-      document.getElementById('auth-error').style.color = 'var(--green)';
-      document.getElementById('auth-error').textContent = 'Check your email to confirm!';
+      errEl.style.color = 'var(--green)';
+      errEl.textContent = 'Check your email to confirm!';
     }
   } catch(e) {
-    document.getElementById('auth-error').style.color = 'var(--red)';
-    document.getElementById('auth-error').textContent = e.message || 'An error occurred';
+    errEl.style.color = 'var(--red)';
+    errEl.textContent = e.message || 'An error occurred';
   }
   btn.textContent = authMode === 'login' ? 'Sign In' : 'Create Account';
   btn.disabled = false;
@@ -1698,7 +1720,6 @@ function showToast(msg) {
 document.getElementById('auth-password').addEventListener('keydown', e => { if (e.key==='Enter') handleAuth(); });
 document.getElementById('auth-email').addEventListener('keydown', e => { if (e.key==='Enter') document.getElementById('auth-password').focus(); });
 setTimeout(() => {
-  if (!supabaseReady) initPortfolios();
   renderAlerts(); renderSmartAlerts();
   checkAlerts();
 }, 500);
