@@ -44,7 +44,6 @@
 
 /* ===== PWA / iOS FIXES ===== */
 html {
-  touch-action: manipulation;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
@@ -56,20 +55,15 @@ body {
   min-height: -webkit-fill-available;
   overscroll-behavior: none;
   -webkit-overflow-scrolling: touch;
-  -webkit-user-select: none;
-  user-select: none;
+  /* PAS de user-select:none global — bloque les clics sur iOS */
 }
-input, textarea, [contenteditable] {
-  -webkit-user-select: text;
-  user-select: text;
+/* Inputs lisibles et sans zoom iOS (iOS zoome si < 16px) */
+input, select, textarea {
   font-size: 16px !important;
-  touch-action: manipulation;
 }
-select { font-size: 16px !important; touch-action: manipulation; }
-button, [onclick] { cursor: pointer; touch-action: manipulation; }
+/* Cache la scrollbar (look app natif) */
 ::-webkit-scrollbar { display: none; }
-* { scrollbar-width: none; -webkit-touch-callout: none; }
-input, textarea { -webkit-touch-callout: default; }
+* { scrollbar-width: none; }
 #auth-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1a1c3a 0%,#2d1b69 50%,#1a1c3a 100%);padding:24px}
 .auth-box{background:var(--white);border-radius:24px;padding:36px 28px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
 .auth-logo{font-size:28px;font-weight:800;color:var(--accent);letter-spacing:-1px;text-align:center;margin-bottom:6px}
@@ -1725,20 +1719,9 @@ if ('serviceWorker' in navigator) {
 }
 
 // ===== iOS PWA : désactive les gestes natifs qui donnent l'effet "site web" =====
-// Empêche le pull-to-refresh Chrome Android
-document.addEventListener('touchmove', function(e) {
-  if (e.scale !== 1) e.preventDefault();
-}, { passive: false });
 
-// Empêche le pinch-to-zoom
-let lastTouchEnd = 0;
-document.addEventListener('touchend', function(e) {
-  const now = Date.now();
-  if (now - lastTouchEnd <= 300) e.preventDefault();
-  lastTouchEnd = now;
-}, false);
 
-// Empêche le context menu sur tap long (images, liens)
+// Empêche le context menu sur tap long
 document.addEventListener('contextmenu', e => e.preventDefault());
 
 // ===== Fix iOS : hauteur correcte avec barre d'adresse =====
