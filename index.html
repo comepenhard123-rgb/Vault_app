@@ -957,6 +957,7 @@ async function loadPortfolioFromCloud() {
     portfolio = data?.assets || [];
   } catch(e) { portfolio = []; }
   if (dot) dot.classList.remove('syncing');
+  initPortfolios();
   renderPortfolio();
 }
 
@@ -1595,19 +1596,28 @@ let portfolios = []; // [{id, name, assets}]
 let currentPortfolioIdx = 0;
 
 function initPortfolios() {
-  // Migrate existing single portfolio to multi-portfolio format
-  const saved = localStorage.getItem('vault_portfolios');
-  if (saved) {
-    portfolios = JSON.parse(saved);
-  } else {
-    // First time: wrap existing portfolio
-    portfolios = [{ id: Date.now(), name: 'Principal', assets: portfolio || [] }];
-    savePortfolios();
+  try {
+    const saved = localStorage.getItem('vault_portfolios');
+    if (saved) {
+      portfolios = JSON.parse(saved);
+      // Assure que chaque portfolio a bien un tableau assets
+      portfolios = portfolios.map(p => ({ ...p, assets: p.assets || [] }));
+    } else {
+      // Première fois : crée un portfolio principal avec les assets existants
+      portfolios = [{ id: Date.now(), name: 'Principal', assets: Array.isArray(portfolio) ? portfolio : [] }];
+      savePortfolios();
+    }
+    currentPortfolioIdx = parseInt(localStorage.getItem('vault_current_portfolio') || '0');
+    if (isNaN(currentPortfolioIdx) || currentPortfolioIdx >= portfolios.length) currentPortfolioIdx = 0;
+    portfolio = portfolios[currentPortfolioIdx].assets;
+    renderPortfolioSelect();
+  } catch(e) {
+    console.error('initPortfolios error:', e);
+    portfolios = [{ id: Date.now(), name: 'Principal', assets: [] }];
+    currentPortfolioIdx = 0;
+    portfolio = [];
+    renderPortfolioSelect();
   }
-  currentPortfolioIdx = parseInt(localStorage.getItem('vault_current_portfolio') || '0');
-  if (currentPortfolioIdx >= portfolios.length) currentPortfolioIdx = 0;
-  portfolio = portfolios[currentPortfolioIdx].assets;
-  renderPortfolioSelect();
 }
 
 function savePortfolios() {
@@ -1762,8 +1772,8 @@ async function connectMetaMaskToPortfolio() {
   }
 }
 
-// Init portfolios after app loads
-setTimeout(() => { if (currentUser || !supabaseReady) initPortfolios(); }, 500);
+// Init portfolios after app loads — appelé aussi depuis showApp après chargement cloud
+setTimeout(() => { if (!supabaseReady) initPortfolios(); }, 300);
 
 // Handle Enter key on auth
 
