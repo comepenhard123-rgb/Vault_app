@@ -263,7 +263,21 @@ input:checked + .toggle-slider:before { transform:translateX(18px); }
 .asset-news-title { font-size:12px; font-weight:600; color:var(--text2); line-height:1.4; }
 .asset-news-meta { font-size:10px; color:var(--muted); margin-top:3px; }
 
-/* TOAST */
+/* PORTFOLIO SWITCHER */
+.portfolio-switcher { display:flex; align-items:center; gap:8px; margin-bottom:14px; }
+.portfolio-select-wrap { flex:1; position:relative; }
+.portfolio-select { width:100%; padding:10px 36px 10px 14px; background:var(--white); border:1.5px solid var(--border); border-radius:12px; color:var(--text); font-family:'Inter',sans-serif; font-size:13px; font-weight:600; outline:none; appearance:none; cursor:pointer; box-shadow:var(--shadow); }
+.portfolio-select-arrow { position:absolute; right:12px; top:50%; transform:translateY(-50%); pointer-events:none; color:var(--text3); }
+.portfolio-new-btn { width:38px; height:38px; border-radius:11px; border:1.5px solid var(--border); background:var(--white); display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--accent); font-size:20px; font-weight:700; flex-shrink:0; box-shadow:var(--shadow); transition:.2s; }
+.portfolio-new-btn:hover { background:var(--accent-light); border-color:var(--accent); }
+.portfolio-delete-btn { width:38px; height:38px; border-radius:11px; border:1.5px solid #fed7d7; background:var(--red-light); display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--red); font-size:16px; flex-shrink:0; box-shadow:var(--shadow); transition:.2s; }
+
+/* METAMASK BUTTON */
+.metamask-btn { width:100%; padding:13px; border:2px solid #f6851b; background:#fff8f3; color:#f6851b; border-radius:14px; font-family:'Inter',sans-serif; font-size:14px; font-weight:700; cursor:pointer; transition:.2s; margin-top:4px; display:flex; align-items:center; justify-content:center; gap:8px; }
+.metamask-btn:hover { background:#f6851b; color:#fff; }
+.metamask-btn.connected { border-color:var(--green); background:var(--green-light); color:var(--green); }
+
+
 .toast { position:fixed; bottom:90px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--text); color:#fff; padding:10px 20px; border-radius:10px; font-size:13px; font-weight:600; opacity:0; transition:.3s; z-index:500; white-space:nowrap; pointer-events:none; }
 .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
 
@@ -354,13 +368,29 @@ input:checked + .toggle-slider:before { transform:translateX(18px); }
   <!-- PORTFOLIO PAGE -->
   <div class="page" id="page-portfolio">
     <div class="portfolio-hero">
-      <div class="portfolio-label">Total Portfolio <span class="sync-dot" id="sync-dot"></span></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+        <div class="portfolio-label">Portfolio <span class="sync-dot" id="sync-dot"></span></div>
+        <span id="portfolio-name-badge" style="font-size:11px;font-weight:700;opacity:.8;background:rgba(255,255,255,.2);padding:3px 10px;border-radius:8px">Principal</span>
+      </div>
       <div class="portfolio-total" id="portfolio-total">$0.00</div>
       <div class="portfolio-pnl">
         <span class="pnl-pill" id="portfolio-pnl-dollar">+$0.00</span>
         <span class="pnl-pill" id="portfolio-pnl-pct">+0.00%</span>
       </div>
     </div>
+
+    <!-- Portfolio switcher -->
+    <div class="portfolio-switcher">
+      <div class="portfolio-select-wrap">
+        <select class="portfolio-select" id="portfolio-select" onchange="switchPortfolio(this.value)">
+          <option value="0">💼 Principal</option>
+        </select>
+        <svg class="portfolio-select-arrow" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <button class="portfolio-new-btn" onclick="createNewPortfolio()" title="Nouveau portfolio">+</button>
+      <button class="portfolio-delete-btn" onclick="deleteCurrentPortfolio()" title="Supprimer ce portfolio">🗑</button>
+    </div>
+
     <div class="filter-row">
       <button class="filter-btn active" onclick="setFilter('all')" id="filter-all">All</button>
       <button class="filter-btn" onclick="setFilter('crypto')" id="filter-crypto">🪙 Crypto</button>
@@ -379,6 +409,10 @@ input:checked + .toggle-slider:before { transform:translateX(18px); }
     </div>
     <div id="portfolio-assets"></div>
     <button class="add-btn" onclick="openModal()">+ Add Asset</button>
+    <button class="metamask-btn" id="metamask-btn" onclick="connectMetaMaskToPortfolio()" style="margin-top:10px">
+      🦊 Connecter MetaMask & importer les cryptos
+    </button>
+    <div id="metamask-status" style="text-align:center;font-size:12px;color:var(--text3);margin-top:8px;min-height:16px"></div>
   </div>
 
   <!-- INDICES PAGE -->
@@ -476,6 +510,7 @@ input:checked + .toggle-slider:before { transform:translateX(18px); }
     </div>
   </div>
 
+
   <nav class="bottom-nav">
     <button class="nav-item active" onclick="goTo('crypto',this)">
       <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M9 9.5h4a1.5 1.5 0 0 1 0 3H9m4 0h1a1.5 1.5 0 0 1 0 3H9m3-6V7m0 11v-2"/></svg>
@@ -559,6 +594,10 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 // ⚠️  REMPLACE AVEC TA CLÉ ALPHA VANTAGE (gratuit sur alphavantage.co)
 // ============================================================
 const ALPHA_VANTAGE_KEY = 'C37L23U0DAEKYDFP';
+// ============================================================
+// ⚠️  REMPLACE AVEC TA CLÉ API CLAUDE (console.anthropic.com)
+// ============================================================
+const CLAUDE_API_KEY = 'METS_TA_CLE_CLAUDE_ICI';
 // ============================================================
 
 // ---- STATE (en premier, avant tout) ----
@@ -1548,6 +1587,186 @@ window.refreshAll = async function() {
 // Init alerts check
 setTimeout(() => { renderAlerts(); checkAlerts(); }, 2000);
 setInterval(checkAlerts, 30000);
+
+// ============================================================
+// MULTI-PORTFOLIO SYSTEM
+// ============================================================
+let portfolios = []; // [{id, name, assets}]
+let currentPortfolioIdx = 0;
+
+function initPortfolios() {
+  // Migrate existing single portfolio to multi-portfolio format
+  const saved = localStorage.getItem('vault_portfolios');
+  if (saved) {
+    portfolios = JSON.parse(saved);
+  } else {
+    // First time: wrap existing portfolio
+    portfolios = [{ id: Date.now(), name: 'Principal', assets: portfolio || [] }];
+    savePortfolios();
+  }
+  currentPortfolioIdx = parseInt(localStorage.getItem('vault_current_portfolio') || '0');
+  if (currentPortfolioIdx >= portfolios.length) currentPortfolioIdx = 0;
+  portfolio = portfolios[currentPortfolioIdx].assets;
+  renderPortfolioSelect();
+}
+
+function savePortfolios() {
+  portfolios[currentPortfolioIdx].assets = portfolio;
+  localStorage.setItem('vault_portfolios', JSON.stringify(portfolios));
+  localStorage.setItem('vault_current_portfolio', currentPortfolioIdx);
+}
+
+function renderPortfolioSelect() {
+  const sel = document.getElementById('portfolio-select');
+  if (!sel) return;
+  sel.innerHTML = portfolios.map((p, i) =>
+    `<option value="${i}" ${i === currentPortfolioIdx ? 'selected' : ''}>💼 ${p.name}</option>`
+  ).join('');
+  const badge = document.getElementById('portfolio-name-badge');
+  if (badge) badge.textContent = portfolios[currentPortfolioIdx].name;
+}
+
+function switchPortfolio(idx) {
+  portfolios[currentPortfolioIdx].assets = portfolio; // save current
+  savePortfolios();
+  currentPortfolioIdx = parseInt(idx);
+  portfolio = portfolios[currentPortfolioIdx].assets;
+  localStorage.setItem('vault_current_portfolio', currentPortfolioIdx);
+  renderPortfolioSelect();
+  window.renderPortfolio();
+  showToast(`Portfolio "${portfolios[currentPortfolioIdx].name}" chargé`);
+}
+
+function createNewPortfolio() {
+  const name = prompt('Nom du nouveau portfolio :', 'Portfolio ' + (portfolios.length + 1));
+  if (!name || !name.trim()) return;
+  portfolios[currentPortfolioIdx].assets = portfolio;
+  portfolios.push({ id: Date.now(), name: name.trim(), assets: [] });
+  currentPortfolioIdx = portfolios.length - 1;
+  portfolio = [];
+  savePortfolios();
+  renderPortfolioSelect();
+  window.renderPortfolio();
+  showToast(`✅ Portfolio "${name.trim()}" créé !`);
+}
+
+function deleteCurrentPortfolio() {
+  if (portfolios.length === 1) { showToast('❌ Tu dois garder au moins 1 portfolio'); return; }
+  const name = portfolios[currentPortfolioIdx].name;
+  if (!confirm(`Supprimer le portfolio "${name}" ?`)) return;
+  portfolios.splice(currentPortfolioIdx, 1);
+  currentPortfolioIdx = Math.max(0, currentPortfolioIdx - 1);
+  portfolio = portfolios[currentPortfolioIdx].assets;
+  savePortfolios();
+  renderPortfolioSelect();
+  window.renderPortfolio();
+  showToast(`Portfolio "${name}" supprimé`);
+}
+
+// Override save to also save to multi-portfolio
+const _origSaveCloud = savePortfolioToCloud;
+window.savePortfolioToCloud = async function() {
+  savePortfolios();
+  await _origSaveCloud();
+};
+
+// ============================================================
+// METAMASK — SCAN & IMPORT INTO CURRENT PORTFOLIO
+// ============================================================
+const METAMASK_TOKENS = [
+  { symbol: 'USDT', name: 'Tether',      contract: '0xdac17f958d2ee523a2206206994597c13d831ec7', decimals: 6,  id: 'tether' },
+  { symbol: 'USDC', name: 'USD Coin',    contract: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', decimals: 6,  id: 'usd-coin' },
+  { symbol: 'LINK', name: 'Chainlink',   contract: '0x514910771af9ca656af840dff83e8264ecf986ca', decimals: 18, id: 'chainlink' },
+  { symbol: 'UNI',  name: 'Uniswap',    contract: '0x1f9840a85d5af5bf1d1762f925bdaddc4201f984', decimals: 18, id: 'uniswap' },
+  { symbol: 'AAVE', name: 'Aave',        contract: '0x7fc66500c84a76ad7e9c93437bfc5ac33e2ddae9', decimals: 18, id: 'aave' },
+  { symbol: 'MKR',  name: 'Maker',       contract: '0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2', decimals: 18, id: 'maker' },
+  { symbol: 'CRV',  name: 'Curve',       contract: '0xd533a949740bb3306d119cc777fa900ba034cd52', decimals: 18, id: 'curve-dao-token' },
+  { symbol: 'LDO',  name: 'Lido',        contract: '0x5a98fcbea516cf06857215779fd812ca3bef1b32', decimals: 18, id: 'lido-dao' },
+  { symbol: 'SHIB', name: 'Shiba Inu',   contract: '0x95ad61b0a150d79219dcf64e1e6cc01f0b64c4ce', decimals: 18, id: 'shiba-inu' },
+  { symbol: 'MATIC', name: 'Polygon',    contract: '0x7d1afa7b718fb893db30a3abc0cfc608aacfebb0', decimals: 18, id: 'matic-network' },
+  { symbol: 'ARB',  name: 'Arbitrum',    contract: '0xb50721bcf8d664c30412cfbc6cf7a15145234ad1', decimals: 18, id: 'arbitrum' },
+  { symbol: 'OP',   name: 'Optimism',    contract: '0x4200000000000000000000000000000000000042', decimals: 18, id: 'optimism' },
+  { symbol: 'PEPE', name: 'Pepe',        contract: '0x6982508145454ce325ddbe47a25d4ec3d2311933', decimals: 18, id: 'pepe' },
+  { symbol: 'SAND', name: 'The Sandbox', contract: '0x3845badade8e6dff049820680d1f14bd3903a5d0', decimals: 18, id: 'the-sandbox' },
+  { symbol: 'MANA', name: 'Decentraland',contract: '0x0f5d2fb29fb7d3cfee444a200298f468908cc942', decimals: 18, id: 'decentraland' },
+];
+
+async function connectMetaMaskToPortfolio() {
+  const btn = document.getElementById('metamask-btn');
+  const status = document.getElementById('metamask-status');
+
+  if (!window.ethereum) {
+    status.innerHTML = '<span style="color:var(--red)">❌ MetaMask non détecté — ouvre cette page dans le browser MetaMask</span>';
+    return;
+  }
+
+  btn.textContent = '⏳ Connexion...';
+  btn.disabled = true;
+  status.textContent = '';
+
+  try {
+    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+    const address = accounts[0];
+    const short = address.substring(0,6) + '...' + address.slice(-4);
+    status.innerHTML = `<span style="color:var(--accent)">🦊 ${short} connecté — scan en cours...</span>`;
+
+    let imported = 0;
+    const balanceOfData = '0x70a08231000000000000000000000000' + address.slice(2).padStart(64, '0');
+
+    // ETH balance
+    const ethHex = await window.ethereum.request({ method: 'eth_getBalance', params: [address, 'latest'] });
+    const ethBal = parseInt(ethHex, 16) / 1e18;
+    if (ethBal > 0.0001) {
+      const ethPrice = cryptoPrices['eth'] || cryptoPrices['ethereum'] || 3400;
+      if (!portfolio.find(p => p.symbol === 'ETH' && p.type === 'crypto')) {
+        portfolio.push({ symbol: 'ETH', name: 'Ethereum', type: 'crypto', qty: parseFloat(ethBal.toFixed(6)), buyPrice: ethPrice, id: 'ethereum' });
+        imported++;
+      }
+    }
+
+    // ERC-20 tokens
+    for (const token of METAMASK_TOKENS) {
+      try {
+        const result = await window.ethereum.request({
+          method: 'eth_call',
+          params: [{ to: token.contract, data: balanceOfData }, 'latest']
+        });
+        const raw = parseInt(result, 16);
+        if (raw > 0) {
+          const balance = raw / Math.pow(10, token.decimals);
+          if (balance > 0.0001) {
+            const price = cryptoPrices[token.symbol.toLowerCase()] || cryptoPrices[token.id] || 0;
+            if (!portfolio.find(p => p.symbol === token.symbol && p.type === 'crypto')) {
+              portfolio.push({ symbol: token.symbol, name: token.name, type: 'crypto', qty: parseFloat(balance.toFixed(6)), buyPrice: price, id: token.id });
+              imported++;
+            }
+          }
+        }
+      } catch(e) {}
+    }
+
+    await savePortfolioToCloud();
+    window.renderPortfolio();
+
+    btn.className = 'metamask-btn connected';
+    btn.textContent = `🦊 ${short} — ${imported} crypto(s) importée(s)`;
+    btn.disabled = false;
+    status.innerHTML = imported > 0
+      ? `<span style="color:var(--green)">✅ ${imported} asset(s) ajouté(s) au portfolio !</span>`
+      : `<span style="color:var(--muted)">Wallet scanné — tous les tokens étaient déjà dans le portfolio</span>`;
+
+  } catch(e) {
+    btn.textContent = '🦊 Connecter MetaMask & importer les cryptos';
+    btn.disabled = false;
+    status.innerHTML = `<span style="color:var(--red)">❌ ${e.code === 4001 ? 'Connexion refusée' : e.message}</span>`;
+  }
+}
+
+// Init portfolios after app loads
+setTimeout(() => { if (currentUser || !supabaseReady) initPortfolios(); }, 500);
+
+// Handle Enter key on auth
+
 
 // Handle Enter key on auth
 document.getElementById('auth-password').addEventListener('keydown', e => { if (e.key === 'Enter') handleAuth(); });
