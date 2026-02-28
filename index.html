@@ -880,35 +880,51 @@ function getCoinColor(s) { return COIN_COLORS[s?.toLowerCase()] || '#5a5fcf'; }
 
 async function loadCrypto() {
   try {
-    const res = await fetch('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=1&sparkline=false');
+    // CoinCap — pas de rate limit, pas de clé requise
+    const res = await fetch('https://api.coincap.io/v2/assets?limit=200');
     if (!res.ok) throw new Error('HTTP ' + res.status);
-    const data = await res.json();
-    if (!Array.isArray(data) || !data.length) throw new Error('empty');
+    const json = await res.json();
+    if (!json.data || !json.data.length) throw new Error('empty');
+    // Convertir format CoinCap -> format attendu par renderCryptoList
+    const data = json.data.map((c, i) => ({
+      id: c.id,
+      symbol: c.symbol.toLowerCase(),
+      name: c.name,
+      current_price: parseFloat(c.priceUsd) || 0,
+      price_change_percentage_24h: parseFloat(c.changePercent24Hr) || 0,
+      market_cap: parseFloat(c.marketCapUsd) || 0,
+      market_cap_rank: i + 1,
+      image: null
+    }));
     cryptoData = data;
-    data.forEach(c => { cryptoPrices[c.id] = c.current_price; cryptoPrices[c.symbol.toLowerCase()] = c.current_price; });
+    data.forEach(c => {
+      cryptoPrices[c.id] = c.current_price;
+      cryptoPrices[c.symbol.toLowerCase()] = c.current_price;
+    });
     renderCryptoList(cryptoData);
     document.getElementById('crypto-sub').textContent = cryptoData.length + ' coins · live prices';
     updateTimestamp();
-    for (let p = 2; p <= 5; p++) {
-      await new Promise(r => setTimeout(r, 1200));
-      try {
-        const r2 = await fetch(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=${p}&sparkline=false`);
-        if (!r2.ok) break;
-        const d2 = await r2.json();
-        if (!Array.isArray(d2) || !d2.length) break;
-        cryptoData = [...cryptoData, ...d2];
-        d2.forEach(c => { cryptoPrices[c.id] = c.current_price; cryptoPrices[c.symbol.toLowerCase()] = c.current_price; });
-        document.getElementById('crypto-sub').textContent = cryptoData.length + ' coins · live prices';
-        renderCryptoList(cryptoData);
-      } catch(e) { break; }
-    }
   } catch(e) {
-    if (!cryptoData.length) {
-      document.getElementById('crypto-list').innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">❌ Impossible de charger les prix. Vérifie ta connexion.</div>';
-      document.getElementById('crypto-sub').textContent = 'Erreur — actualise la page';
+    // Fallback CoinGecko si CoinCap échoue
+    try {
+      const res2 = await fetch('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=1&sparkline=false');
+      if (!res2.ok) throw new Error('HTTP ' + res2.status);
+      const data2 = await res2.json();
+      if (!Array.isArray(data2) || !data2.length) throw new Error('empty');
+      cryptoData = data2;
+      data2.forEach(c => { cryptoPrices[c.id] = c.current_price; cryptoPrices[c.symbol.toLowerCase()] = c.current_price; });
+      renderCryptoList(cryptoData);
+      document.getElementById('crypto-sub').textContent = cryptoData.length + ' coins · live prices';
+      updateTimestamp();
+    } catch(e2) {
+      if (!cryptoData.length) {
+        document.getElementById('crypto-list').innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">❌ Impossible de charger les prix. Vérifie ta connexion.</div>';
+        document.getElementById('crypto-sub').textContent = 'Erreur — actualise la page';
+      }
     }
   }
 }
+
 function renderCryptoList(data) {
   const q = document.getElementById('crypto-search').value.toLowerCase();
   const filtered = data.filter(c => !q || c.name.toLowerCase().includes(q) || c.symbol.toLowerCase().includes(q));
