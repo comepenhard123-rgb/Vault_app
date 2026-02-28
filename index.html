@@ -842,8 +842,11 @@ function showAuth() {
 }
 async function initApp() {
   await loadPortfolioFromCloud();
-  loadCrypto();
-  loadStocks();
+  // Petit délai pour laisser le DOM se stabiliser après restauration iOS
+  setTimeout(() => {
+    loadCrypto();
+    loadStocks();
+  }, 100);
   refreshInterval = setInterval(refreshAll, 60000);
 }
 
@@ -879,6 +882,9 @@ const COIN_COLORS = { btc:'#f7931a',eth:'#627eea',usdt:'#26a17b',bnb:'#f0b90b',s
 function getCoinColor(s) { return COIN_COLORS[s?.toLowerCase()] || '#5a5fcf'; }
 
 async function loadCrypto() {
+  // Sécurité : s'assure que le DOM est prêt
+  const listEl = document.getElementById('crypto-list');
+  if (!listEl) { setTimeout(loadCrypto, 500); return; }
   try {
     // CoinCap — pas de rate limit, pas de clé requise
     const res = await fetch('https://api.coincap.io/v2/assets?limit=200');
@@ -1857,18 +1863,30 @@ setInterval(checkAlerts, 30000);
 setInterval(() => { if (document.getElementById('page-dashboard')?.classList.contains('active')) renderDashboard(); }, 300000);
 
 
-// SPLASH — disparaît après 2.4s
+// SPLASH — rapide si session déjà en cache, sinon 2.4s
 (function() {
   function hideSplash() {
     var splash = document.getElementById('splash');
     if (!splash) return;
     splash.classList.add('hide');
-    setTimeout(function() {
-      splash.style.display = 'none';
-    }, 650);
+    setTimeout(function() { splash.style.display = 'none'; }, 650);
   }
-  // Minimum 2.4s d'affichage pour que l'animation soit complète
-  setTimeout(hideSplash, 2400);
+
+  // Vérifie si une session Supabase existe déjà en localStorage
+  var hasSession = false;
+  try {
+    for (var k in localStorage) {
+      if (k.includes('supabase') || k.includes('sb-')) { hasSession = true; break; }
+    }
+  } catch(e) {}
+
+  if (hasSession) {
+    // Session existante : splash court (juste le temps du V qui se dessine)
+    setTimeout(hideSplash, 1200);
+  } else {
+    // Premier lancement : animation complète
+    setTimeout(hideSplash, 2400);
+  }
 })();
 
 </script>
