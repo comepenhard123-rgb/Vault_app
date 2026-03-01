@@ -56,17 +56,16 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-h
 
 /* ===== PULL TO REFRESH ===== */
 #ptr-indicator{
-  position:fixed;top:56px;left:50%;transform:translateX(-50%) translateY(-80px);
+  position:fixed;top:66px;left:50%;
+  transform:translateX(-50%);
   width:40px;height:40px;border-radius:50%;
   background:var(--white);border:1.5px solid var(--border);
-  display:flex;align-items:center;justify-content:center;
+  display:none;align-items:center;justify-content:center;
   box-shadow:var(--shadow-md);z-index:100;
-  transition:transform .3s ease;pointer-events:none;
+  pointer-events:none;
 }
-#ptr-indicator.visible{transform:translateX(-50%) translateY(8px)}
-#ptr-indicator.refreshing{transform:translateX(-50%) translateY(8px)}
-#ptr-indicator svg{transition:transform .3s}
-#ptr-indicator.refreshing svg{animation:spin .7s linear infinite}
+#ptr-indicator.visible{display:flex}
+#ptr-indicator.loading-state{display:flex}
 #ptr-indicator.loading-state svg{animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 
@@ -1223,19 +1222,18 @@ function dismissNotifBanner() {
 // PULL TO REFRESH
 // ============================================================
 let ptrStartY = 0, ptrCurrentY = 0, ptrActive = false, ptrRefreshing = false;
-const PTR_THRESHOLD = 75;
+const PTR_THRESHOLD = 70;
 
 function initPullToRefresh() {
   const scroller = document.getElementById('app-screen');
 
   scroller.addEventListener('touchstart', (e) => {
-    // Only trigger on scroll at top
+    if (ptrRefreshing) return;
+    if (window.scrollY > 5) return;
     const activePage = document.querySelector('.page.active');
-    if (!activePage || activePage.scrollTop > 0) return;
-    // Check if we're truly at the top
-    const scrollEl = activePage;
-    if (scrollEl && scrollEl.scrollTop > 5) return;
+    if (activePage && activePage.scrollTop > 5) return;
     ptrStartY = e.touches[0].clientY;
+    ptrCurrentY = ptrStartY;
     ptrActive = true;
   }, { passive: true });
 
@@ -1243,11 +1241,8 @@ function initPullToRefresh() {
     if (!ptrActive || ptrRefreshing) return;
     ptrCurrentY = e.touches[0].clientY;
     const delta = ptrCurrentY - ptrStartY;
-    if (delta > 10) {
-      const indicator = document.getElementById('ptr-indicator');
-      const progress = Math.min(delta / PTR_THRESHOLD, 1);
-      indicator.style.transform = `translateX(-50%) translateY(${Math.min(delta * 0.5, 50) - 80}px) rotate(${progress * 360}deg)`;
-      indicator.classList.add('visible');
+    if (delta > 20) {
+      document.getElementById('ptr-indicator').classList.add('visible');
     }
   }, { passive: true });
 
@@ -1260,13 +1255,12 @@ function initPullToRefresh() {
     if (delta > PTR_THRESHOLD && !ptrRefreshing) {
       ptrRefreshing = true;
       haptic('medium');
+      indicator.classList.remove('visible');
       indicator.classList.add('loading-state');
-      indicator.style.transform = 'translateX(-50%) translateY(8px)';
       await refreshAll();
       ptrRefreshing = false;
     }
 
-    indicator.style.transform = 'translateX(-50%) translateY(-80px)';
     indicator.classList.remove('visible', 'loading-state');
     ptrCurrentY = 0;
     ptrStartY = 0;
@@ -1495,19 +1489,14 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     appWasHidden = true;
     if (isLockActive()) {
-      clearTimeout(lockTimer);
-      lockTimer = setTimeout(() => {
-        const appScreen = document.getElementById('app-screen');
-        if (appScreen && appScreen.style.display !== 'none') {
-          showLockScreen();
-        }
-      }, LOCK_DELAY); // Immediate
+      // Lock immediately, synchronously — no setTimeout, no cancel
+      const appScreen = document.getElementById('app-screen');
+      if (appScreen && appScreen.style.display !== 'none') {
+        showLockScreen();
+      }
     }
-  } else {
-    if (!appWasHidden) return;
-    appWasHidden = false;
-    clearTimeout(lockTimer); // Cancel if user came back very fast
   }
+  // Note: we intentionally do NOT unlock on visibilitychange — user must enter PIN
 });
 
 window.addEventListener('pageshow', (e) => {
@@ -1775,9 +1764,66 @@ function getCoinColor(s) { return COIN_COLORS[s?.toLowerCase()] || '#5a5fcf'; }
 // ============================================================
 // CRYPTO
 // ============================================================
-async function loadCrypto() {
+const CRYPTO_CACHE_KEY = 'vault_crypto_cache';
+const CRYPTO_CACHE_TTL = 5 * 60 * 1000; // 5 min
+
+// Static fallback prices if all APIs fail
+const CRYPTO_FALLBACK = [
+  {id:'bitcoin',symbol:'btc',name:'Bitcoin',current_price:97000,price_change_percentage_24h:1.2,market_cap:1920000000000,market_cap_rank:1},
+  {id:'ethereum',symbol:'eth',name:'Ethereum',current_price:3400,price_change_percentage_24h:0.8,market_cap:408000000000,market_cap_rank:2},
+  {id:'tether',symbol:'usdt',name:'Tether',current_price:1,price_change_percentage_24h:0,market_cap:140000000000,market_cap_rank:3},
+  {id:'bnb',symbol:'bnb',name:'BNB',current_price:680,price_change_percentage_24h:1.5,market_cap:99000000000,market_cap_rank:4},
+  {id:'solana',symbol:'sol',name:'Solana',current_price:205,price_change_percentage_24h:2.1,market_cap:97000000000,market_cap_rank:5},
+  {id:'xrp',symbol:'xrp',name:'XRP',current_price:2.3,price_change_percentage_24h:-0.5,market_cap:133000000000,market_cap_rank:6},
+  {id:'usd-coin',symbol:'usdc',name:'USD Coin',current_price:1,price_change_percentage_24h:0,market_cap:45000000000,market_cap_rank:7},
+  {id:'cardano',symbol:'ada',name:'Cardano',current_price:0.89,price_change_percentage_24h:1.8,market_cap:31000000000,market_cap_rank:8},
+  {id:'dogecoin',symbol:'doge',name:'Dogecoin',current_price:0.38,price_change_percentage_24h:3.2,market_cap:56000000000,market_cap_rank:9},
+  {id:'avalanche-2',symbol:'avax',name:'Avalanche',current_price:38,price_change_percentage_24h:2.4,market_cap:16000000000,market_cap_rank:10},
+];
+
+function fetchWithTimeout(url, ms = 8000) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  return fetch(url, { signal: ctrl.signal }).finally(() => clearTimeout(timer));
+}
+
+function saveCryptoCache(data) {
+  try { localStorage.setItem(CRYPTO_CACHE_KEY, JSON.stringify({ ts: Date.now(), data })); } catch(e) {}
+}
+
+function loadCryptoCache() {
   try {
-    const res = await fetch('https://api.coincap.io/v2/assets?limit=200');
+    const raw = localStorage.getItem(CRYPTO_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (Date.now() - parsed.ts < CRYPTO_CACHE_TTL) return parsed.data;
+    // Expired — remove it
+    localStorage.removeItem(CRYPTO_CACHE_KEY);
+  } catch(e) {}
+  return null;
+}
+
+async function loadCrypto() {
+  // 1. Try cache first (avoids hammering APIs on rapid reloads)
+  const cached = loadCryptoCache();
+  if (cached && cached.length) {
+    cryptoData = cached;
+    cached.forEach(c => { cryptoPrices[c.id] = c.current_price; cryptoPrices[c.symbol.toLowerCase()] = c.current_price; });
+    renderCryptoList(cryptoData);
+    document.getElementById('crypto-sub').textContent = cryptoData.length + ' coins · cached';
+    updateCryptoSummaryWidget();
+    // Refresh in background silently
+    _fetchCryptoFromAPIs(true);
+    return;
+  }
+  // 2. No cache — fetch live
+  await _fetchCryptoFromAPIs(false);
+}
+
+async function _fetchCryptoFromAPIs(silent = false) {
+  // Try CoinCap
+  try {
+    const res = await fetchWithTimeout('https://api.coincap.io/v2/assets?limit=200', 8000);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const json = await res.json();
     if (!json.data?.length) throw new Error('empty');
@@ -1786,29 +1832,41 @@ async function loadCrypto() {
       current_price: parseFloat(c.priceUsd) || 0,
       price_change_percentage_24h: parseFloat(c.changePercent24Hr) || 0,
       market_cap: parseFloat(c.marketCapUsd) || 0,
-      market_cap_rank: i + 1, image: null
+      market_cap_rank: i + 1
     }));
     cryptoData = data;
     data.forEach(c => { cryptoPrices[c.id] = c.current_price; cryptoPrices[c.symbol.toLowerCase()] = c.current_price; });
+    saveCryptoCache(data);
     renderCryptoList(cryptoData);
-    document.getElementById('crypto-sub').textContent = cryptoData.length + ' coins · live prices';
+    if (!silent) document.getElementById('crypto-sub').textContent = cryptoData.length + ' coins · live';
     updateTimestamp();
     updateCryptoSummaryWidget();
-  } catch(e) {
-    try {
-      const res2 = await fetch('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=1&sparkline=false');
-      if (!res2.ok) throw new Error();
-      const data2 = await res2.json();
-      if (!Array.isArray(data2) || !data2.length) throw new Error();
-      cryptoData = data2;
-      data2.forEach(c => { cryptoPrices[c.id] = c.current_price; cryptoPrices[c.symbol.toLowerCase()] = c.current_price; });
-      renderCryptoList(cryptoData);
-      updateCryptoSummaryWidget();
-    } catch(e2) {
-      if (!cryptoData.length) {
-        document.getElementById('crypto-list').innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">❌ Connection error. Pull to refresh.</div>';
-      }
-    }
+    return;
+  } catch(e) {}
+
+  // Try CoinGecko
+  try {
+    const res2 = await fetchWithTimeout('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=1&sparkline=false', 10000);
+    if (!res2.ok) throw new Error();
+    const data2 = await res2.json();
+    if (!Array.isArray(data2) || !data2.length) throw new Error();
+    cryptoData = data2;
+    data2.forEach(c => { cryptoPrices[c.id] = c.current_price; cryptoPrices[c.symbol.toLowerCase()] = c.current_price; });
+    saveCryptoCache(data2);
+    renderCryptoList(cryptoData);
+    if (!silent) document.getElementById('crypto-sub').textContent = data2.length + ' coins · live';
+    updateTimestamp();
+    updateCryptoSummaryWidget();
+    return;
+  } catch(e) {}
+
+  // Fallback to static data
+  if (!cryptoData.length) {
+    cryptoData = CRYPTO_FALLBACK;
+    CRYPTO_FALLBACK.forEach(c => { cryptoPrices[c.id] = c.current_price; cryptoPrices[c.symbol.toLowerCase()] = c.current_price; });
+    renderCryptoList(cryptoData);
+    document.getElementById('crypto-sub').textContent = '⚠️ Données hors-ligne · Pull to refresh';
+    updateCryptoSummaryWidget();
   }
 }
 
