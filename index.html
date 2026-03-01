@@ -454,11 +454,12 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
   position:fixed;top:64px;left:12px;right:12px;z-index:400;
   background:var(--card-bg);border:1.5px solid var(--accent);border-radius:16px;
   padding:14px 16px;box-shadow:0 8px 32px rgba(0,0,0,.2);
-  display:flex;align-items:center;gap:12px;
-  transform:translateY(-120px);transition:transform .4s cubic-bezier(.34,1.56,.64,1);
+  display:none;align-items:center;gap:12px;
+  opacity:0;transform:translateY(-12px);
+  transition:opacity .3s ease,transform .3s cubic-bezier(.34,1.56,.64,1);
   pointer-events:none;
 }
-.notif-banner.show{transform:translateY(0);pointer-events:auto}
+.notif-banner.show{display:flex;opacity:1;transform:translateY(0);pointer-events:auto}
 .notif-banner-icon{font-size:22px;flex-shrink:0}
 .notif-banner-content{flex:1}
 .notif-banner-title{font-size:13px;font-weight:700;color:var(--text)}
@@ -1483,20 +1484,26 @@ async function registerBiometric() {
 }
 
 // ============================================================
-// VISIBILITY CHANGE — IMMEDIATE LOCK
+// LOCK — INSTANTANÉ (pagehide + visibilitychange + blur)
 // ============================================================
+function triggerInstantLock() {
+  if (!isLockActive()) return;
+  const appScreen = document.getElementById('app-screen');
+  if (!appScreen || appScreen.style.display === 'none') return;
+  showLockScreen();
+}
+
+// pagehide = fiable sur iOS Safari quand on quitte l'app
+window.addEventListener('pagehide', triggerInstantLock);
+
+// visibilitychange = quand on switche d'app ou minimise
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) {
-    appWasHidden = true;
-    if (isLockActive()) {
-      // Lock immediately, synchronously — no setTimeout, no cancel
-      const appScreen = document.getElementById('app-screen');
-      if (appScreen && appScreen.style.display !== 'none') {
-        showLockScreen();
-      }
-    }
-  }
-  // Note: we intentionally do NOT unlock on visibilitychange — user must enter PIN
+  if (document.hidden) triggerInstantLock();
+});
+
+// blur = fenêtre perd le focus (double sécurité desktop/web)
+window.addEventListener('blur', () => {
+  if (document.hidden) triggerInstantLock();
 });
 
 window.addEventListener('pageshow', (e) => {
@@ -2151,7 +2158,14 @@ function renderPortfolio() {
       : (stockPrices[a.symbol.toUpperCase()] || a.buyPrice);
     const val = cp * a.qty, cost = a.buyPrice * a.qty;
     tv += val; tc += cost;
-    return { ...a, cp, val, cost, pnlD: val - cost, pnlP: cost > 0 ? ((val - cost) / cost) * 100 : 0 };
+    // 24H change
+    const raw = a.type === 'crypto'
+      ? cryptoData.find(c => c.symbol.toLowerCase() === a.symbol.toLowerCase() || c.id === a.id)
+      : stocksData.find(s => s.symbol === a.symbol.toUpperCase());
+    const chg24p = raw?.price_change_percentage_24h ?? raw?.change ?? 0;
+    const cp_yesterday = cp / (1 + chg24p / 100);
+    const chg24eur = (cp - cp_yesterday) * a.qty;
+    return { ...a, cp, val, cost, pnlD: val - cost, pnlP: cost > 0 ? ((val - cost) / cost) * 100 : 0, chg24p, chg24eur };
   });
   const pnlD = tv - tc, pnlP = tc > 0 ? (pnlD / tc) * 100 : 0;
   document.getElementById('portfolio-total').textContent = '$' + fp(tv);
@@ -2167,7 +2181,41 @@ function renderPortfolio() {
     const col = a.type === 'crypto' ? getCoinColor(a.symbol) : (SC[stocksData.find(s => s.symbol === a.symbol.toUpperCase())?.sector] || '#5a5fcf');
     const news = getAssetNews(a.symbol, a.name);
     const newsHtml = news.length ? `<div class="asset-news"><div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">📰 Related News</div>${news.map(n => `<a href="${n.url}" target="_blank" rel="noopener" style="text-decoration:none"><div class="asset-news-item"><div class="asset-news-title">${n.title}</div><div class="asset-news-meta">${n.source} · ${n.time}</div></div></a>`).join('')}</div>` : '';
-    return `<div class="asset-card" onclick="toggleDetail(${idx})"><div class="asset-top"><div class="asset-left"><div class="asset-icon" style="background:${col}18;color:${col}">${a.symbol.substring(0,3).toUpperCase()}</div><div><div class="asset-name">${a.name}</div><div class="asset-sym">${a.symbol.toUpperCase()} · ${a.type==='crypto'?'Crypto':'Stock'}</div></div></div><div class="asset-right"><div class="asset-value">$${fp(a.val)}</div><span class="change-pill ${a.pnlD>=0?'pos':'neg'}" style="font-size:11px;margin-top:4px">${a.pnlD>=0?'+':''}${a.pnlP.toFixed(2)}%</span></div></div><div class="asset-detail" id="detail-${idx}"><div class="detail-grid"><div class="detail-item"><label>Buy Price</label><value>$${fp(a.buyPrice)}</value></div><div class="detail-item"><label>Current Price</label><value>$${fp(a.cp)}</value></div><div class="detail-item"><label>P&L $</label><value style="color:${a.pnlD>=0?'var(--green)':'var(--red)'}">${a.pnlD>=0?'+':'-'}$${Math.abs(a.pnlD).toFixed(2)}</value></div><div class="detail-item"><label>P&L %</label><value style="color:${a.pnlD>=0?'var(--green)':'var(--red)'}">${a.pnlP>=0?'+':''}${a.pnlP.toFixed(2)}%</value></div><div class="detail-item"><label>Quantity</label><value>${a.qty}</value></div><div class="detail-item"><label>Total Cost</label><value>$${fp(a.cost)}</value></div></div>${newsHtml}<button class="remove-btn" onclick="event.stopPropagation();removeAsset('${a.symbol}','${a.type}')">Remove Asset</button></div></div>`;
+    const chgColor = a.chg24p >= 0 ? 'var(--green)' : 'var(--red)';
+    const chgSign = a.chg24p >= 0 ? '+' : '';
+    const eurSign = a.chg24eur >= 0 ? '+' : '-';
+    const chg24Label = `${chgSign}${a.chg24p.toFixed(2)}%&nbsp;&nbsp;${eurSign}$${Math.abs(a.chg24eur).toFixed(2)}`;
+    return `<div class="asset-card" onclick="toggleDetail(${idx})">
+  <div class="asset-top">
+    <div class="asset-left">
+      <div class="asset-icon" style="background:${col}18;color:${col}">${a.symbol.substring(0,3).toUpperCase()}</div>
+      <div>
+        <div class="asset-name">${a.name}</div>
+        <div class="asset-sym">${a.symbol.toUpperCase()} · ${a.type==='crypto'?'Crypto':'Stock'}</div>
+      </div>
+    </div>
+    <div class="asset-right">
+      <div class="asset-value">$${fp(a.val)}</div>
+      <div style="display:flex;gap:5px;align-items:center;justify-content:flex-end;margin-top:4px;flex-wrap:wrap">
+        <span class="change-pill ${a.pnlD>=0?'pos':'neg'}" style="font-size:10px">${a.pnlD>=0?'+':''}${a.pnlP.toFixed(2)}% P&L</span>
+      </div>
+      <div style="font-size:11px;font-weight:600;color:${chgColor};margin-top:3px;font-family:'DM Mono',monospace;text-align:right">24H ${chgSign}${a.chg24p.toFixed(2)}% / ${eurSign}$${Math.abs(a.chg24eur).toFixed(2)}</div>
+    </div>
+  </div>
+  <div class="asset-detail" id="detail-${idx}">
+    <div class="detail-grid">
+      <div class="detail-item"><label>Buy Price</label><value>$${fp(a.buyPrice)}</value></div>
+      <div class="detail-item"><label>Current Price</label><value>$${fp(a.cp)}</value></div>
+      <div class="detail-item"><label>P&L $</label><value style="color:${a.pnlD>=0?'var(--green)':'var(--red)'}">${a.pnlD>=0?'+':'-'}$${Math.abs(a.pnlD).toFixed(2)}</value></div>
+      <div class="detail-item"><label>P&L %</label><value style="color:${a.pnlD>=0?'var(--green)':'var(--red)'}">${a.pnlP>=0?'+':''}${a.pnlP.toFixed(2)}%</value></div>
+      <div class="detail-item"><label>24H Change</label><value style="color:${chgColor}">${chgSign}${a.chg24p.toFixed(2)}% (${eurSign}$${Math.abs(a.chg24eur).toFixed(2)})</value></div>
+      <div class="detail-item"><label>Quantity</label><value>${a.qty}</value></div>
+      <div class="detail-item"><label>Total Cost</label><value>$${fp(a.cost)}</value></div>
+    </div>
+    ${newsHtml}
+    <button class="remove-btn" onclick="event.stopPropagation();removeAsset('${a.symbol}','${a.type}')">Remove Asset</button>
+  </div>
+</div>`;
   }).join('');
   setTimeout(() => { recordPortfolioSnapshot(); renderChart(); }, 300);
 }
