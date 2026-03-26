@@ -44,12 +44,8 @@
 html{scroll-behavior:smooth}
 body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh;overflow-x:hidden;position:relative}
 
-/* ── NOISE TEXTURE ── */
-/* noise removed */
-
 /* ── AUTH ── */
 #auth-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;position:relative;background:var(--bg);z-index:10}
-/* auth glow removed */
 .auth-box{background:var(--surface);border:1px solid var(--border2);border-radius:24px;padding:40px 32px;width:100%;max-width:400px;box-shadow:var(--shadow-md),0 0 0 1px rgba(201,168,76,.05);position:relative;z-index:20}
 .auth-logo{font-size:32px;font-weight:800;color:var(--accent);letter-spacing:-1.5px;text-align:center;margin-bottom:4px;text-shadow:0 0 30px rgba(201,168,76,.3)}
 .auth-logo span{color:var(--text3)}
@@ -62,12 +58,17 @@ body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-he
 .auth-input::placeholder{color:var(--muted)}
 .auth-btn{width:100%;padding:14px;background:var(--accent);color:#000;border:none;border-radius:10px;font-family:'Syne',sans-serif;font-size:14px;font-weight:800;cursor:pointer;transition:.2s;margin-top:4px;letter-spacing:.3px}
 .auth-btn:hover{background:var(--accent2);box-shadow:var(--glow)}
-.auth-error{color:var(--red);font-size:12px;text-align:center;margin-top:10px;min-height:18px}
+.auth-btn:disabled{opacity:.6;cursor:not-allowed}
+.auth-error{font-size:12px;text-align:center;margin-top:10px;min-height:18px;padding:0 4px;line-height:1.5}
 .biometric-btn{width:100%;padding:13px;background:var(--surface3);color:var(--text);border:1px solid var(--border2);border-radius:10px;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:.2s;margin-top:10px;display:flex;align-items:center;justify-content:center;gap:10px}
 .biometric-btn:hover{border-color:var(--accent);color:var(--accent)}
 .biometric-btn svg{width:20px;height:20px;flex-shrink:0}
 .biometric-divider{display:flex;align-items:center;gap:10px;margin:14px 0 4px;color:var(--muted);font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.5px}
 .biometric-divider::before,.biometric-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* status banner */
+.auth-status-banner{background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.2);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--text3);text-align:center;margin-bottom:16px;display:none}
+.auth-status-banner.visible{display:block}
 
 /* ── APP ── */
 #app-screen{display:none;position:relative;z-index:10}
@@ -330,12 +331,16 @@ input:checked+.toggle-slider:before{transform:translateX(18px);background:#000}
   <div class="auth-box">
     <div class="auth-logo">vault<span>.</span></div>
     <div class="auth-tagline">Your personal finance dashboard</div>
+
+    <!-- Status banner shown when Supabase is loading -->
+    <div class="auth-status-banner" id="auth-status-banner">⏳ Connecting to server...</div>
+
     <div class="auth-tabs">
       <button class="auth-tab active" onclick="switchTab('login')">Sign In</button>
       <button class="auth-tab" onclick="switchTab('signup')">Create Account</button>
     </div>
-    <input class="auth-input" id="auth-email" type="email" placeholder="Email address">
-    <input class="auth-input" id="auth-password" type="password" placeholder="Password">
+    <input class="auth-input" id="auth-email" type="email" placeholder="Email address" autocomplete="email">
+    <input class="auth-input" id="auth-password" type="password" placeholder="Password" autocomplete="current-password">
     <input class="auth-input" id="auth-name" type="text" placeholder="Your name" style="display:none">
     <button class="auth-btn" id="auth-submit" onclick="handleAuth()">Sign In</button>
     <div id="biometric-section" style="display:none">
@@ -384,7 +389,7 @@ input:checked+.toggle-slider:before{transform:translateX(18px);background:#000}
   <!-- STOCKS -->
   <div class="page" id="page-stocks">
     <div class="page-title">Stock Market 📈</div>
-    <div class="page-sub" id="stocks-sub">Chargement des prix...</div>
+    <div class="page-sub" id="stocks-sub">Loading prices...</div>
     <div class="search-wrap">
       <svg class="search-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
       <input class="search-input" id="stock-search" placeholder="Search ticker or company...">
@@ -434,7 +439,7 @@ input:checked+.toggle-slider:before{transform:translateX(18px);background:#000}
     </div>
     <div id="portfolio-assets"></div>
     <button class="add-btn" onclick="openModal()">+ Add Asset</button>
-    <button class="metamask-btn" id="metamask-btn" onclick="connectMetaMask()" style="margin-top:10px">🦊 Connecter MetaMask & importer les cryptos</button>
+    <button class="metamask-btn" id="metamask-btn" onclick="connectMetaMask()" style="margin-top:10px">🦊 Connect MetaMask & import crypto</button>
     <div id="metamask-status" style="text-align:center;font-size:12px;color:var(--text3);margin-top:8px"></div>
   </div>
 
@@ -449,26 +454,26 @@ input:checked+.toggle-slider:before{transform:translateX(18px);background:#000}
   <div class="page" id="page-dashboard">
     <div class="dashboard-hero">
       <div class="dashboard-date" id="dash-date">—</div>
-      <div class="dashboard-title">Ce qu'il faut surveiller 🎯</div>
-      <div class="dashboard-sub" id="dash-sub">Analyse en temps réel</div>
+      <div class="dashboard-title">What to watch 🎯</div>
+      <div class="dashboard-sub" id="dash-sub">Real-time analysis</div>
     </div>
     <div class="signal-grid">
-      <div class="signal-card" id="card-pf"><div class="signal-label">Portfolio</div><div class="signal-value" id="dash-pf-val">—</div><div class="signal-sub" id="dash-pf-pnl">chargement...</div></div>
+      <div class="signal-card" id="card-pf"><div class="signal-label">Portfolio</div><div class="signal-value" id="dash-pf-val">—</div><div class="signal-sub" id="dash-pf-pnl">loading...</div></div>
       <div class="signal-card" id="card-fg"><div class="signal-label">Fear & Greed</div><div class="signal-value" id="dash-fg">—</div><div class="signal-sub" id="dash-fg-sub">—</div></div>
       <div class="signal-card" id="card-dom"><div class="signal-label">BTC Dominance</div><div class="signal-value" id="dash-dom">—</div><div class="signal-sub" id="dash-dom-sub">—</div></div>
-      <div class="signal-card" id="card-mktcap"><div class="signal-label">Marché global</div><div class="signal-value" id="dash-mktcap">—</div><div class="signal-sub" id="dash-mktcap-sub">—</div></div>
+      <div class="signal-card" id="card-mktcap"><div class="signal-label">Global Market</div><div class="signal-value" id="dash-mktcap">—</div><div class="signal-sub" id="dash-mktcap-sub">—</div></div>
     </div>
     <div class="watch-section">
-      <div class="watch-title">⚠️ Signaux actifs</div>
-      <div id="dash-signals-list"><div class="loading"><div class="spinner"></div><p>Analyse en cours...</p></div></div>
+      <div class="watch-title">⚠️ Active signals</div>
+      <div id="dash-signals-list"><div class="loading"><div class="spinner"></div><p>Analyzing...</p></div></div>
     </div>
     <div class="watch-section">
-      <div class="watch-title">📊 Ton portfolio</div>
-      <div id="dash-portfolio-breakdown"><div style="padding:16px;text-align:center;color:var(--muted);font-size:13px">Ajoute des assets pour voir l'analyse</div></div>
+      <div class="watch-title">📊 Your portfolio</div>
+      <div id="dash-portfolio-breakdown"><div style="padding:16px;text-align:center;color:var(--muted);font-size:13px">Add assets to see analysis</div></div>
     </div>
     <div class="watch-section">
-      <div class="watch-title">💡 Opportunités détectées</div>
-      <div id="dash-opportunities"><div class="loading"><div class="spinner"></div><p>Scan en cours...</p></div></div>
+      <div class="watch-title">💡 Detected opportunities</div>
+      <div id="dash-opportunities"><div class="loading"><div class="spinner"></div><p>Scanning...</p></div></div>
     </div>
   </div>
 
@@ -486,67 +491,67 @@ input:checked+.toggle-slider:before{transform:translateX(18px);background:#000}
 
   <!-- ALERTS -->
   <div class="page" id="page-alerts">
-    <div class="page-title">Alertes 🔔</div>
-    <div class="page-sub">Prix + alertes intelligentes</div>
+    <div class="page-title">Alerts 🔔</div>
+    <div class="page-sub">Price + smart alerts</div>
     <div class="smart-alert-tabs">
-      <button class="smart-tab active" onclick="switchAlertTab('price',this)">💰 Prix</button>
-      <button class="smart-tab" onclick="switchAlertTab('smart',this)">🧠 Intelligentes</button>
+      <button class="smart-tab active" onclick="switchAlertTab('price',this)">💰 Price</button>
+      <button class="smart-tab" onclick="switchAlertTab('smart',this)">🧠 Smart</button>
     </div>
     <div id="alert-tab-price">
       <div class="add-alert-form">
-        <h4>Nouvelle alerte prix</h4>
+        <h4>New price alert</h4>
         <div class="form-group">
-          <label style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;display:block">Asset</label>
+          <label>Asset</label>
           <input class="form-input" id="alert-asset-input" placeholder="BTC, ETH, AAPL..." oninput="handleAlertSearch()" autocomplete="off">
           <div class="autocomplete-list" id="alert-autocomplete"></div>
         </div>
         <div class="alert-form-row">
           <div class="form-group" style="margin-bottom:0">
-            <label style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;display:block">Condition</label>
-            <select class="form-select" id="alert-condition"><option value="above">Prix dépasse</option><option value="below">Prix descend sous</option></select>
+            <label>Condition</label>
+            <select class="form-select" id="alert-condition"><option value="above">Price goes above</option><option value="below">Price goes below</option></select>
           </div>
           <div class="form-group" style="margin-bottom:0">
-            <label style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;display:block">Prix cible ($)</label>
-            <input class="form-input" id="alert-price" type="number" step="any" placeholder="ex: 100000">
+            <label>Target price ($)</label>
+            <input class="form-input" id="alert-price" type="number" step="any" placeholder="e.g. 100000">
           </div>
         </div>
-        <button class="btn-primary" style="width:100%;margin-top:12px" onclick="addAlert()">Ajouter l'alerte 🔔</button>
+        <button class="btn-primary" style="width:100%;margin-top:12px" onclick="addAlert()">Add alert 🔔</button>
       </div>
       <div id="alerts-list"></div>
       <div id="alerts-empty" style="display:none;text-align:center;padding:40px 24px;color:var(--muted)">
         <div style="font-size:40px;margin-bottom:12px">🔔</div>
-        <div style="font-size:14px;font-weight:600;color:var(--text2)">Aucune alerte</div>
+        <div style="font-size:14px;font-weight:600;color:var(--text2)">No alerts</div>
       </div>
     </div>
     <div id="alert-tab-smart" style="display:none">
       <div class="smart-alert-form">
-        <h4 style="font-size:14px;font-weight:700;margin-bottom:14px">Type d'alerte</h4>
+        <h4 style="font-size:14px;font-weight:700;margin-bottom:14px">Alert type</h4>
         <div class="smart-type-grid">
-          <button class="smart-type-btn selected" onclick="selectSmartType('drawdown',this)">📉 Drawdown<br><span style="font-weight:400;font-size:10px">Perte depuis achat</span></button>
-          <button class="smart-type-btn" onclick="selectSmartType('dominance',this)">🌐 BTC Dom.<br><span style="font-weight:400;font-size:10px">Dominance BTC</span></button>
-          <button class="smart-type-btn" onclick="selectSmartType('concentration',this)">⚖️ Concentration<br><span style="font-weight:400;font-size:10px">Asset dominant</span></button>
-          <button class="smart-type-btn" onclick="selectSmartType('pnl',this)">💸 P&L cible<br><span style="font-weight:400;font-size:10px">% gain/perte</span></button>
-          <button class="smart-type-btn" onclick="selectSmartType('feargreed',this)">😱 Fear & Greed<br><span style="font-weight:400;font-size:10px">Indice extrême</span></button>
+          <button class="smart-type-btn selected" onclick="selectSmartType('drawdown',this)">📉 Drawdown<br><span style="font-weight:400;font-size:10px">Loss from buy</span></button>
+          <button class="smart-type-btn" onclick="selectSmartType('dominance',this)">🌐 BTC Dom.<br><span style="font-weight:400;font-size:10px">BTC dominance</span></button>
+          <button class="smart-type-btn" onclick="selectSmartType('concentration',this)">⚖️ Concentration<br><span style="font-weight:400;font-size:10px">Dominant asset</span></button>
+          <button class="smart-type-btn" onclick="selectSmartType('pnl',this)">💸 P&L target<br><span style="font-weight:400;font-size:10px">% gain/loss</span></button>
+          <button class="smart-type-btn" onclick="selectSmartType('feargreed',this)">😱 Fear & Greed<br><span style="font-weight:400;font-size:10px">Extreme index</span></button>
         </div>
         <div class="form-group">
-          <label style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;display:block">Asset (optionnel)</label>
-          <input class="form-input" id="smart-asset-input" placeholder="Laisser vide = portfolio entier" oninput="handleSmartAssetSearch()" autocomplete="off">
+          <label>Asset (optional)</label>
+          <input class="form-input" id="smart-asset-input" placeholder="Leave empty = entire portfolio" oninput="handleSmartAssetSearch()" autocomplete="off">
           <div class="autocomplete-list" id="smart-autocomplete"></div>
         </div>
         <div class="form-group">
-          <label style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;display:block" id="smart-threshold-label">Seuil (%)</label>
-          <input class="form-input" id="smart-threshold" type="number" step="1" value="20" placeholder="ex: 20">
+          <label id="smart-threshold-label">Threshold (%)</label>
+          <input class="form-input" id="smart-threshold" type="number" step="1" value="20" placeholder="e.g. 20">
         </div>
         <div class="form-group">
-          <label style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;display:block">Condition</label>
-          <select class="form-select" id="smart-condition"><option value="above">Dépasse</option><option value="below">Descend sous</option></select>
+          <label>Condition</label>
+          <select class="form-select" id="smart-condition"><option value="above">Goes above</option><option value="below">Goes below</option></select>
         </div>
-        <button class="btn-primary" style="width:100%" onclick="addSmartAlert()">Créer l'alerte 🧠</button>
+        <button class="btn-primary" style="width:100%" onclick="addSmartAlert()">Create alert 🧠</button>
       </div>
       <div id="smart-alerts-list"></div>
       <div id="smart-alerts-empty" style="display:none;text-align:center;padding:32px 24px;color:var(--muted)">
         <div style="font-size:36px;margin-bottom:10px">🧠</div>
-        <div style="font-size:14px;font-weight:600;color:var(--text2)">Aucune alerte intelligente</div>
+        <div style="font-size:14px;font-weight:600;color:var(--text2)">No smart alerts</div>
       </div>
     </div>
   </div>
@@ -567,7 +572,7 @@ input:checked+.toggle-slider:before{transform:translateX(18px);background:#000}
     </div>
     <div class="section-label">Portfolio</div>
     <div class="settings-card">
-      <div class="settings-item"><div><h4>Clear Portfolio</h4><p>Remove all assets</p></div><button onclick="clearPortfolio()" style="padding:7px 14px;background:var(--red-light);color:var(--red);border:1.5px solid #fed7d7;border-radius:8px;cursor:pointer;font-family:'Syne',sans-serif;font-size:12px;font-weight:700">Clear All</button></div>
+      <div class="settings-item"><div><h4>Clear Portfolio</h4><p>Remove all assets</p></div><button onclick="clearPortfolio()" style="padding:7px 14px;background:var(--red-light);color:var(--red);border:1.5px solid rgba(248,81,73,.3);border-radius:8px;cursor:pointer;font-family:'Syne',sans-serif;font-size:12px;font-weight:700">Clear All</button></div>
     </div>
     <button class="logout-btn" onclick="handleLogout()">Sign Out</button>
     <div class="version-info">vault v1.0 · built with ♥</div>
@@ -596,7 +601,7 @@ input:checked+.toggle-slider:before{transform:translateX(18px);background:#000}
     </button>
     <button class="nav-item" onclick="goTo('alerts',this)" id="nav-alerts">
       <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-      <span>Alertes</span>
+      <span>Alerts</span>
     </button>
     <button class="nav-item" onclick="goTo('settings',this)">
       <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -627,7 +632,7 @@ input:checked+.toggle-slider:before{transform:translateX(18px);background:#000}
         <div class="sa-icon" id="selected-icon"></div>
         <div>
           <div id="selected-name" style="font-weight:700;font-size:14px;color:var(--text)"></div>
-          <div id="selected-price" style="font-size:12px;color:var(--accent);font-family:'DM Mono',monospace;font-weight:600"></div>
+          <div id="selected-price" style="font-size:12px;color:var(--accent);font-family:'JetBrains Mono',monospace;font-weight:600"></div>
         </div>
         <button onclick="clearSelectedAsset()" style="margin-left:auto;background:none;border:none;color:var(--muted);cursor:pointer;font-size:22px;line-height:1">×</button>
       </div>
@@ -653,7 +658,7 @@ input:checked+.toggle-slider:before{transform:translateX(18px);background:#000}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
 // ============================================================
-// CONFIG — Remplace avec tes clés
+// CONFIG
 // ============================================================
 const SUPABASE_URL = 'https://atrbgokwbyhdcebqqxse.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF0cmJnb2t3YnloZGNlYnFxeHNlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIwMjI3NDUsImV4cCI6MjA4NzU5ODc0NX0.Rg9Z6v12Ov7n0XXd-6T-lOmw_Cw7T21Rx3MZScNCl_Q';
@@ -673,17 +678,54 @@ let alertSelectedAsset = null, smartSelectedAsset = null, selectedSmartType = 'd
 let portfolios = [], currentPortfolioIdx = 0;
 let portfolioChart = null, chartPeriod = '7d', portfolioHistory = [];
 let sb = null;
+let sbReady = false; // ← NEW: tracks when Supabase is actually initialized
 
-// SUPABASE
-const supabaseReady = SUPABASE_URL.includes('supabase.co');
-if (supabaseReady) {
-  const { createClient } = supabase;
-  sb = createClient(SUPABASE_URL, SUPABASE_KEY);
-  sb.auth.onAuthStateChange(async (event, session) => {
-    if (session?.user) { currentUser = session.user; showApp(); }
-    else { currentUser = null; showAuth(); }
-  });
-} else {
+// ============================================================
+// SUPABASE INIT — robust, with fallback
+// ============================================================
+function initSupabase() {
+  const banner = document.getElementById('auth-status-banner');
+  try {
+    if (!window.supabase) throw new Error('Supabase SDK not loaded');
+    const { createClient } = window.supabase;
+    sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+    sbReady = true;
+
+    // Listen for auth state changes
+    sb.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        currentUser = session.user;
+        // Save session for biometric reuse
+        const bioCred = localStorage.getItem(BIOMETRIC_KEY);
+        if (bioCred && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
+          localStorage.setItem('vault_biometric_session', JSON.stringify({
+            access_token: session.access_token,
+            refresh_token: session.refresh_token,
+            email: session.user.email,
+            saved_at: Date.now()
+          }));
+        }
+        if (event === 'SIGNED_OUT') localStorage.removeItem('vault_biometric_session');
+        showApp();
+      } else {
+        currentUser = null;
+        if (document.getElementById('app-screen').style.display !== 'none') showAuth();
+      }
+    });
+
+    if (banner) banner.classList.remove('visible');
+  } catch(e) {
+    console.error('Supabase init error:', e);
+    sbReady = false;
+    // Fallback to demo mode
+    startDemoMode();
+  }
+}
+
+function startDemoMode() {
+  const banner = document.getElementById('auth-status-banner');
+  if (banner) { banner.textContent = '⚠️ Offline mode — data saved locally'; banner.classList.add('visible'); }
+  // Remove Supabase dependency, launch directly
   setTimeout(() => {
     document.getElementById('auth-screen').style.display = 'none';
     document.getElementById('app-screen').style.display = 'block';
@@ -697,56 +739,119 @@ if (supabaseReady) {
 }
 
 // AUTH
+function setAuthError(msg, isSuccess = false) {
+  const el = document.getElementById('auth-error');
+  el.textContent = msg;
+  el.style.color = isSuccess ? 'var(--green)' : 'var(--red)';
+}
+
+function clearAuthError() {
+  const el = document.getElementById('auth-error');
+  el.textContent = '';
+}
+
 function switchTab(mode) {
   authMode = mode;
   document.querySelectorAll('.auth-tab').forEach((t,i) => t.classList.toggle('active', (i===0&&mode==='login')||(i===1&&mode==='signup')));
   document.getElementById('auth-name').style.display = mode === 'signup' ? 'block' : 'none';
   document.getElementById('auth-submit').textContent = mode === 'login' ? 'Sign In' : 'Create Account';
-  document.getElementById('auth-error').textContent = '';
+  clearAuthError();
+  if (mode === 'login') setTimeout(checkBiometricSupport, 50);
+  else document.getElementById('biometric-section').style.display = 'none';
 }
+
 async function handleAuth() {
+  clearAuthError();
+
+  // Guard: check sb is ready
+  if (!sbReady || !sb) {
+    setAuthError('Server not connected. Check your internet connection.');
+    return;
+  }
+
   const email = document.getElementById('auth-email').value.trim();
   const pass = document.getElementById('auth-password').value;
   const btn = document.getElementById('auth-submit');
-  if (!email || !pass) { document.getElementById('auth-error').textContent = 'Please fill all fields'; return; }
-  btn.textContent = 'Loading...'; btn.disabled = true;
-  document.getElementById('auth-error').textContent = '';
+
+  if (!email) { setAuthError('Please enter your email address.'); return; }
+  if (!pass) { setAuthError('Please enter your password.'); return; }
+  if (pass.length < 6) { setAuthError('Password must be at least 6 characters.'); return; }
+
+  btn.textContent = 'Loading...';
+  btn.disabled = true;
+
   try {
-    const result = authMode === 'login'
-      ? await sb.auth.signInWithPassword({ email, password: pass })
-      : await sb.auth.signUp({ email, password: pass });
-    if (result.error) throw result.error;
-    if (authMode === 'signup' && !result.data.session) {
-      document.getElementById('auth-error').style.color = 'var(--green)';
-      document.getElementById('auth-error').textContent = 'Check your email to confirm!';
+    let result;
+    if (authMode === 'login') {
+      result = await sb.auth.signInWithPassword({ email, password: pass });
+    } else {
+      result = await sb.auth.signUp({ email, password: pass });
     }
+
+    if (result.error) {
+      // Translate common Supabase errors to user-friendly messages
+      const msg = result.error.message || '';
+      if (msg.includes('Invalid login credentials')) setAuthError('Wrong email or password. Try again.');
+      else if (msg.includes('Email not confirmed')) setAuthError('Check your inbox and confirm your email first.');
+      else if (msg.includes('User already registered')) setAuthError('This email is already registered. Sign in instead.');
+      else if (msg.includes('rate limit')) setAuthError('Too many attempts. Wait a moment and try again.');
+      else setAuthError(msg || 'An error occurred. Try again.');
+    } else if (authMode === 'signup' && !result.data.session) {
+      setAuthError('✅ Account created! Check your email to confirm.', true);
+    }
+    // On success, onAuthStateChange fires → showApp()
   } catch(e) {
-    document.getElementById('auth-error').style.color = 'var(--red)';
-    document.getElementById('auth-error').textContent = e.message || 'An error occurred';
+    console.error('Auth error:', e);
+    if (e.name === 'TypeError' && e.message.includes('fetch')) {
+      setAuthError('Network error. Check your internet connection.');
+    } else {
+      setAuthError(e.message || 'Unexpected error. Try again.');
+    }
   }
+
   btn.textContent = authMode === 'login' ? 'Sign In' : 'Create Account';
   btn.disabled = false;
 }
+
 async function handleLogout() {
-  if (supabaseReady && sb) await sb.auth.signOut();
-  else { localStorage.removeItem('vault_demo'); portfolio = []; showAuth(); }
+  localStorage.removeItem('vault_biometric_session');
+  if (sbReady && sb) {
+    await sb.auth.signOut();
+  } else {
+    localStorage.removeItem('vault_demo');
+    portfolio = [];
+    showAuth();
+  }
 }
+
 function showApp() {
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app-screen').style.display = 'block';
-  const email = currentUser.email;
+  const email = currentUser?.email || 'demo@vault.app';
   document.getElementById('user-avatar').textContent = email[0].toUpperCase();
   document.getElementById('settings-email').textContent = email;
   initApp();
+
+  // Offer biometric setup
+  const alreadyRegistered = localStorage.getItem(BIOMETRIC_KEY);
+  const dismissed = localStorage.getItem('vault_biometric_dismissed');
+  if (!alreadyRegistered && !dismissed && window.PublicKeyCredential) {
+    PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().then(available => {
+      if (available && currentUser) setTimeout(() => offerBiometricSetup(), 1500);
+    }).catch(() => {});
+  }
 }
+
 function showAuth() {
   document.getElementById('auth-screen').style.display = 'flex';
   document.getElementById('app-screen').style.display = 'none';
 }
+
 async function initApp() {
   await loadPortfolioFromCloud();
   loadCrypto();
   loadStocks();
+  if (refreshInterval) clearInterval(refreshInterval);
   refreshInterval = setInterval(refreshAll, 60000);
 }
 
@@ -792,7 +897,6 @@ async function loadCrypto() {
     renderCryptoList(cryptoData);
     document.getElementById('crypto-sub').textContent = cryptoData.length + ' coins · live prices';
     updateTimestamp();
-    // Pages supplémentaires en arrière plan
     for (let p = 2; p <= 5; p++) {
       await new Promise(r => setTimeout(r, 1200));
       try {
@@ -808,11 +912,12 @@ async function loadCrypto() {
     }
   } catch(e) {
     if (!cryptoData.length) {
-      document.getElementById('crypto-list').innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">❌ Impossible de charger les prix. Vérifie ta connexion.</div>';
-      document.getElementById('crypto-sub').textContent = 'Erreur — actualise la page';
+      document.getElementById('crypto-list').innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">❌ Could not load prices. Check your connection.</div>';
+      document.getElementById('crypto-sub').textContent = 'Error — refresh the page';
     }
   }
 }
+
 function renderCryptoList(data) {
   const q = document.getElementById('crypto-search').value.toLowerCase();
   const filtered = data.filter(c => !q || c.name.toLowerCase().includes(q) || c.symbol.toLowerCase().includes(q));
@@ -892,14 +997,14 @@ async function loadStocks() {
       });
       renderStocksList(stocksData);
       const min = Math.round((AV_CACHE_TTL - (Date.now() - cached.ts)) / 60000);
-      document.getElementById('stocks-sub').innerHTML = `🟢 <b>${n}/50</b> prix live · cache expire dans ${min}min`;
+      document.getElementById('stocks-sub').innerHTML = `🟢 <b>${n}/50</b> live prices · cache expires in ${min}min`;
       return;
     }
   } catch(e) {}
   const symbols = STOCKS.map(s => s.symbol);
   const priceCache = {};
   let fetched = 0;
-  document.getElementById('stocks-sub').innerHTML = `⏳ Chargement live… <b>0/${symbols.length}</b>`;
+  document.getElementById('stocks-sub').innerHTML = `⏳ Loading live… <b>0/${symbols.length}</b>`;
   for (let i = 0; i < symbols.length; i++) {
     if (avFetchAbort) break;
     if (i > 0) await new Promise(r => setTimeout(r, 13000));
@@ -914,10 +1019,10 @@ async function loadStocks() {
       renderStocksList(stocksData);
       const remaining = symbols.length - i - 1;
       const eta = remaining > 0 ? ` · ~${Math.ceil(remaining * 13 / 60)}min` : '';
-      document.getElementById('stocks-sub').innerHTML = `⏳ Chargement… <b>${fetched}/${symbols.length}</b>${eta}`;
+      document.getElementById('stocks-sub').innerHTML = `⏳ Loading… <b>${fetched}/${symbols.length}</b>${eta}`;
     } catch(e) {
       if (e.message === 'rate_limit') {
-        document.getElementById('stocks-sub').innerHTML = `⚠️ Rate limit — reprise dans 60s…`;
+        document.getElementById('stocks-sub').innerHTML = `⚠️ Rate limit — resuming in 60s…`;
         await new Promise(r => setTimeout(r, 60000));
         i--;
         continue;
@@ -927,7 +1032,7 @@ async function loadStocks() {
   if (Object.keys(priceCache).length > 0) {
     try { localStorage.setItem(AV_CACHE_KEY, JSON.stringify({ ts: Date.now(), prices: priceCache })); } catch(e) {}
   }
-  document.getElementById('stocks-sub').innerHTML = `🟢 <b>${fetched}/${symbols.length}</b> prix live Alpha Vantage ✓`;
+  document.getElementById('stocks-sub').innerHTML = `🟢 <b>${fetched}/${symbols.length}</b> live prices via Alpha Vantage ✓`;
 }
 
 function renderStocksList(data) {
@@ -946,7 +1051,7 @@ document.getElementById('stock-search').addEventListener('input', () => renderSt
 async function loadPortfolioFromCloud() {
   const dot = document.getElementById('sync-dot');
   if (dot) dot.classList.add('syncing');
-  if (!supabaseReady || !sb) {
+  if (!sbReady || !sb) {
     portfolio = JSON.parse(localStorage.getItem('vault_demo') || '[]');
     if (dot) dot.classList.remove('syncing');
     initPortfolios(); renderPortfolio(); return;
@@ -960,11 +1065,12 @@ async function loadPortfolioFromCloud() {
   initPortfolios();
   renderPortfolio();
 }
+
 async function savePortfolioToCloud() {
   const dot = document.getElementById('sync-dot');
   if (dot) dot.classList.add('syncing');
   savePortfolios();
-  if (supabaseReady && sb) {
+  if (sbReady && sb && currentUser) {
     try {
       const { data: existing } = await sb.from('portfolios').select('id').eq('user_id', currentUser.id).single();
       if (existing) await sb.from('portfolios').update({ assets: portfolio, updated_at: new Date().toISOString() }).eq('user_id', currentUser.id);
@@ -1018,27 +1124,27 @@ function switchPortfolio(idx) {
   if (portfolioChart) { portfolioChart.destroy(); portfolioChart = null; }
   renderPortfolioSelect();
   renderPortfolio();
-  showToast(`Portfolio "${portfolios[currentPortfolioIdx].name}" chargé`);
+  showToast(`Portfolio "${portfolios[currentPortfolioIdx].name}" loaded`);
 }
 function createNewPortfolio() {
-  const name = prompt('Nom du nouveau portfolio :', 'Portfolio ' + (portfolios.length + 1));
+  const name = prompt('New portfolio name:', 'Portfolio ' + (portfolios.length + 1));
   if (!name?.trim()) return;
   portfolios[currentPortfolioIdx].assets = portfolio;
   portfolios.push({ id: Date.now(), name: name.trim(), assets: [] });
   currentPortfolioIdx = portfolios.length - 1;
   portfolio = [];
   savePortfolios(); renderPortfolioSelect(); renderPortfolio();
-  showToast(`✅ Portfolio "${name.trim()}" créé !`);
+  showToast(`✅ Portfolio "${name.trim()}" created!`);
 }
 function deleteCurrentPortfolio() {
-  if (portfolios.length === 1) { showToast('❌ Tu dois garder au moins 1 portfolio'); return; }
+  if (portfolios.length === 1) { showToast('❌ You need at least 1 portfolio'); return; }
   const name = portfolios[currentPortfolioIdx].name;
-  if (!confirm(`Supprimer le portfolio "${name}" ?`)) return;
+  if (!confirm(`Delete portfolio "${name}"?`)) return;
   portfolios.splice(currentPortfolioIdx, 1);
   currentPortfolioIdx = Math.max(0, currentPortfolioIdx - 1);
   portfolio = portfolios[currentPortfolioIdx].assets;
   savePortfolios(); renderPortfolioSelect(); renderPortfolio();
-  showToast(`Portfolio "${name}" supprimé`);
+  showToast(`Portfolio "${name}" deleted`);
 }
 
 // RENDER PORTFOLIO
@@ -1207,7 +1313,7 @@ async function renderIndices() {
         <div class="fg-word" style="color:${fgCol}">${fgLabel}</div>
         <div class="fg-bar"><div class="fg-dot" style="left:calc(${fg}% - 9px)"></div></div>
         <div class="fg-labels"><span>Extreme Fear</span><span>Fear</span><span>Neutral</span><span>Greed</span><span>Extreme Greed</span></div>
-      ` : '<div style="text-align:center;padding:16px;color:var(--muted);font-size:13px">API indisponible — réessaie dans 1 min</div>'}
+      ` : '<div style="text-align:center;padding:16px;color:var(--muted);font-size:13px">API unavailable — try again in 1 min</div>'}
     </div>
     <div class="index-card"><div class="index-label">Global Market Cap</div><div class="index-value">${mcap ? fm(mcap) : 'N/A'}</div><div class="index-sub" style="color:${mcap24>=0?'var(--green)':'var(--red)'}">${mcap24 !== null ? (mcap24>=0?'↑':'↓') + ' ' + Math.abs(mcap24) + '% (24h)' : '—'}</div></div>
     <div class="index-card"><div class="index-label">24h Volume</div><div class="index-value">${vol ? fm(vol) : 'N/A'}</div><div class="index-sub">Global trading</div></div>
@@ -1216,24 +1322,17 @@ async function renderIndices() {
     <div class="index-card full"><div class="index-label">Active Cryptocurrencies</div><div class="index-value">${Number(coins).toLocaleString()}</div><div class="index-sub">Listed on CoinGecko</div></div>`;
 }
 
-// ============================================================
-// DASHBOARD — Zero fake data, proper error handling
-// ============================================================
+// DASHBOARD
 async function renderDashboard() {
   const now = new Date();
-  document.getElementById('dash-date').textContent = now.toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long' });
-
-  // Reset cards
+  document.getElementById('dash-date').textContent = now.toLocaleDateString('en-US', { weekday:'long', day:'numeric', month:'long' });
   ['dash-fg','dash-dom','dash-mktcap','dash-pf-val'].forEach(id => document.getElementById(id).textContent = '…');
-  document.getElementById('dash-signals-list').innerHTML = '<div class="loading"><div class="spinner"></div><p>Chargement des données marché...</p></div>';
-  document.getElementById('dash-opportunities').innerHTML = '<div class="loading"><div class="spinner"></div><p>Analyse en cours...</p></div>';
-  document.getElementById('dash-portfolio-breakdown').innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted);font-size:13px">Chargement...</div>';
+  document.getElementById('dash-signals-list').innerHTML = '<div class="loading"><div class="spinner"></div><p>Loading market data...</p></div>';
+  document.getElementById('dash-opportunities').innerHTML = '<div class="loading"><div class="spinner"></div><p>Scanning...</p></div>';
+  document.getElementById('dash-portfolio-breakdown').innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted);font-size:13px">Loading...</div>';
 
-  // ---- Portfolio (local data, always available) ----
   const total = portfolio.reduce((s, a) => {
-    const p = a.type === 'crypto'
-      ? (cryptoPrices[a.symbol.toLowerCase()] || cryptoPrices[a.id] || null)
-      : (stockPrices[a.symbol] || null);
+    const p = a.type === 'crypto' ? (cryptoPrices[a.symbol.toLowerCase()] || cryptoPrices[a.id] || null) : (stockPrices[a.symbol] || null);
     return p !== null ? s + p * a.qty : s;
   }, 0);
   const cost = portfolio.reduce((s, a) => s + a.buyPrice * a.qty, 0);
@@ -1241,7 +1340,7 @@ async function renderDashboard() {
   const pfCard = document.getElementById('card-pf');
   const pfVal = document.getElementById('dash-pf-val');
   if (portfolio.length === 0) {
-    pfVal.textContent = '—'; document.getElementById('dash-pf-pnl').textContent = 'Portfolio vide';
+    pfVal.textContent = '—'; document.getElementById('dash-pf-pnl').textContent = 'Portfolio empty';
     pfCard.className = 'signal-card';
   } else {
     pfVal.textContent = '$' + fp(total);
@@ -1249,29 +1348,24 @@ async function renderDashboard() {
     document.getElementById('dash-pf-pnl').textContent = (pnl>=0?'+':'') + fp(pnl) + ' (' + (pnlPct>=0?'+':'') + pnlPct.toFixed(1) + '%)';
   }
 
-  // ---- Fetch market data in parallel with timeout ----
   const ft = (url, ms=7000) => {
     const c = new AbortController();
     const t = setTimeout(() => c.abort(), ms);
     return fetch(url, { signal: c.signal }).finally(() => clearTimeout(t));
   };
 
-  gd = null, fgVal = null, fgLabel = null;
-
+  let gd = null, fgVal = null, fgLabel = null;
   const [globalRes, fgRes] = await Promise.allSettled([
     ft('https://api.coingecko.com/api/v3/global', 8000).then(r => { if (!r.ok) throw new Error('HTTP '+r.status); return r.json(); }),
     ft('https://api.alternative.me/fng/?limit=1', 6000).then(r => { if (!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
   ]);
 
   if (globalRes.status === 'fulfilled' && globalRes.value?.data) gd = globalRes.value.data;
-  else console.warn('CoinGecko /global failed:', globalRes.reason?.message);
-
   if (fgRes.status === 'fulfilled' && fgRes.value?.data?.[0]) {
     fgVal = parseInt(fgRes.value.data[0].value);
     fgLabel = fgRes.value.data[0].value_classification;
-  } else console.warn('Fear & Greed failed:', fgRes.reason?.message);
+  }
 
-  // ---- Update Fear & Greed card ----
   const fgEl = document.getElementById('dash-fg');
   const fgSub = document.getElementById('dash-fg-sub');
   const fgCard = document.getElementById('card-fg');
@@ -1279,12 +1373,11 @@ async function renderDashboard() {
     fgEl.textContent = fgVal; fgSub.textContent = fgLabel;
     fgCard.className = 'signal-card ' + (fgVal < 25 ? 'red' : fgVal < 45 ? 'orange' : fgVal < 75 ? 'green' : 'orange');
   } else {
-    fgEl.textContent = 'N/A'; fgSub.textContent = 'Indispo — clique pour réessayer';
+    fgEl.textContent = 'N/A'; fgSub.textContent = 'Unavailable';
     fgCard.className = 'signal-card'; fgCard.style.cursor = 'pointer';
     fgCard.onclick = () => renderDashboard();
   }
 
-  // ---- Update BTC Dominance card ----
   const domEl = document.getElementById('dash-dom');
   const domSub = document.getElementById('dash-dom-sub');
   const domCard = document.getElementById('card-dom');
@@ -1296,10 +1389,9 @@ async function renderDashboard() {
     domCard.className = 'signal-card ' + (dom > 55 ? 'orange' : 'purple');
     domSub.textContent = btcP ? '$' + fp(btcP) : '—';
   } else {
-    domEl.textContent = 'N/A'; domSub.textContent = 'API indisponible'; domCard.className = 'signal-card';
+    domEl.textContent = 'N/A'; domSub.textContent = 'API unavailable'; domCard.className = 'signal-card';
   }
 
-  // ---- Update Market Cap card ----
   const mcapEl = document.getElementById('dash-mktcap');
   const mcapSub = document.getElementById('dash-mktcap-sub');
   const mcapCard = document.getElementById('card-mktcap');
@@ -1311,43 +1403,40 @@ async function renderDashboard() {
     mcapCard.className = 'signal-card ' + (mcapChange >= 0 ? 'green' : 'red');
     mcapSub.textContent = mcapChange !== null ? (mcapChange>=0?'▲':'▼') + Math.abs(mcapChange).toFixed(1) + '% 24h' : '—';
   } else {
-    mcapEl.textContent = 'N/A'; mcapSub.textContent = 'API indisponible'; mcapCard.className = 'signal-card';
+    mcapEl.textContent = 'N/A'; mcapSub.textContent = 'API unavailable'; mcapCard.className = 'signal-card';
   }
 
-  // ---- Build signals ----
   const signals = [];
-  const bothFailed = !gd && fgVal === null;
-  if (bothFailed) {
-    signals.push({ icon:'⚠️', text:'Données marché indisponibles', detail:'APIs en rate limit ou hors ligne. Réessaie dans 1 minute.', badge:'warn', badgeTxt:'API Error' });
+  if (!gd && fgVal === null) {
+    signals.push({ icon:'⚠️', text:'Market data unavailable', detail:'APIs rate-limited or offline. Try again in 1 minute.', badge:'warn', badgeTxt:'API Error' });
   } else {
     if (fgVal !== null) {
-      if (fgVal <= 20) signals.push({ icon:'😱', text:`Extreme Fear (${fgVal}) — zone d'opportunité`, detail:"Historiquement les meilleurs points d'entrée. Reste prudent.", badge:'danger', badgeTxt:'Extreme Fear' });
-      else if (fgVal >= 80) signals.push({ icon:'🤑', text:`Extreme Greed (${fgVal}) — marché surchauffé`, detail:'Risque de correction. Considère sécuriser des profits.', badge:'warn', badgeTxt:'Extreme Greed' });
+      if (fgVal <= 20) signals.push({ icon:'😱', text:`Extreme Fear (${fgVal}) — buying opportunity`, detail:'Historically good entry points. Stay cautious.', badge:'danger', badgeTxt:'Extreme Fear' });
+      else if (fgVal >= 80) signals.push({ icon:'🤑', text:`Extreme Greed (${fgVal}) — overheated market`, detail:'Risk of correction. Consider taking profits.', badge:'warn', badgeTxt:'Extreme Greed' });
     }
     if (dom !== null) {
-      if (dom > 60) signals.push({ icon:'👑', text:`BTC très dominant (${dom.toFixed(1)}%)`, detail:'Altcoins sous pression. Reste sur BTC/ETH.', badge:'warn', badgeTxt:'BTC Saison' });
-      else if (dom < 45) signals.push({ icon:'🚀', text:`BTC dominance faible (${dom.toFixed(1)}%)`, detail:'Rotation vers les altcoins possible.', badge:'info', badgeTxt:'Alt Saison' });
+      if (dom > 60) signals.push({ icon:'👑', text:`BTC very dominant (${dom.toFixed(1)}%)`, detail:'Altcoins under pressure. Stay with BTC/ETH.', badge:'warn', badgeTxt:'BTC Season' });
+      else if (dom < 45) signals.push({ icon:'🚀', text:`Low BTC dominance (${dom.toFixed(1)}%)`, detail:'Possible rotation into altcoins.', badge:'info', badgeTxt:'Alt Season' });
     }
     if (mcapChange !== null && Math.abs(mcapChange) >= 5) {
-      signals.push({ icon: mcapChange>0?'📈':'📉', text:`Marché global ${mcapChange>0?'+':''}${mcapChange.toFixed(1)}% en 24h`, detail:'Mouvement important. Surveille tes positions.', badge: mcapChange>0?'ok':'danger', badgeTxt: mcapChange>0?'Haussier':'Baissier' });
+      signals.push({ icon: mcapChange>0?'📈':'📉', text:`Global market ${mcapChange>0?'+':''}${mcapChange.toFixed(1)}% in 24h`, detail:'Significant move. Monitor your positions.', badge: mcapChange>0?'ok':'danger', badgeTxt: mcapChange>0?'Bullish':'Bearish' });
     }
   }
 
-  // Portfolio signals (real data only)
   if (portfolio.length > 0) {
     cryptoData.forEach(c => {
       const inPf = portfolio.find(a => a.id === c.id || a.symbol.toLowerCase() === c.symbol.toLowerCase());
       const chg = c.price_change_percentage_24h;
       if (inPf && chg !== null && Math.abs(chg) >= 10) {
-        signals.push({ icon: chg>0?'🚀':'📉', text:`${c.name} ${chg>0?'+':''}${chg.toFixed(1)}% aujourd'hui`, detail:`Dans ton portfolio — $${fp(c.current_price)}`, badge: chg>0?'ok':'danger', badgeTxt: chg>0?'Hausse':'Chute' });
+        signals.push({ icon: chg>0?'🚀':'📉', text:`${c.name} ${chg>0?'+':''}${chg.toFixed(1)}% today`, detail:`In your portfolio — $${fp(c.current_price)}`, badge: chg>0?'ok':'danger', badgeTxt: chg>0?'Surge':'Drop' });
       }
     });
     portfolio.forEach(a => {
       const cp = a.type === 'crypto' ? (cryptoPrices[a.symbol.toLowerCase()] || cryptoPrices[a.id] || null) : (stockPrices[a.symbol] || null);
       if (cp === null) return;
       const dd = (cp - a.buyPrice) / a.buyPrice * 100;
-      if (dd <= -25) signals.push({ icon:'🩸', text:`${a.symbol.toUpperCase()} en chute de ${dd.toFixed(0)}%`, detail:`Acheté $${fp(a.buyPrice)}, maintenant $${fp(cp)}`, badge:'danger', badgeTxt:'Drawdown' });
-      if (dd >= 50) signals.push({ icon:'💰', text:`${a.symbol.toUpperCase()} +${dd.toFixed(0)}% — prendre des profits ?`, detail:`Acheté $${fp(a.buyPrice)}, maintenant $${fp(cp)}`, badge:'warn', badgeTxt:'Profits' });
+      if (dd <= -25) signals.push({ icon:'🩸', text:`${a.symbol.toUpperCase()} down ${dd.toFixed(0)}%`, detail:`Bought $${fp(a.buyPrice)}, now $${fp(cp)}`, badge:'danger', badgeTxt:'Drawdown' });
+      if (dd >= 50) signals.push({ icon:'💰', text:`${a.symbol.toUpperCase()} +${dd.toFixed(0)}% — take profits?`, detail:`Bought $${fp(a.buyPrice)}, now $${fp(cp)}`, badge:'warn', badgeTxt:'Profits' });
     });
     if (total > 0) {
       const sorted = portfolio.map(a => {
@@ -1355,27 +1444,23 @@ async function renderDashboard() {
         return { symbol: a.symbol, val: cp * a.qty };
       }).sort((x,y) => y.val - x.val);
       if (sorted[0] && sorted[0].val / total > 0.6) {
-        signals.push({ icon:'⚖️', text:`${sorted[0].symbol.toUpperCase()} = ${(sorted[0].val/total*100).toFixed(0)}% du portfolio`, detail:'Surconcentration. Pense à diversifier.', badge:'warn', badgeTxt:'Concentration' });
+        signals.push({ icon:'⚖️', text:`${sorted[0].symbol.toUpperCase()} = ${(sorted[0].val/total*100).toFixed(0)}% of portfolio`, detail:'Over-concentrated. Consider diversifying.', badge:'warn', badgeTxt:'Concentration' });
       }
     }
   }
 
   document.getElementById('dash-signals-list').innerHTML = signals.length
     ? signals.map(s => `<div class="watch-item"><div class="watch-icon">${s.icon}</div><div class="watch-info"><div class="watch-text">${s.text}</div><div class="watch-detail">${s.detail}</div></div><span class="watch-badge ${s.badge}">${s.badgeTxt}</span></div>`).join('')
-    : '<div class="watch-item"><div class="watch-icon">✅</div><div class="watch-info"><div class="watch-text">Aucun signal particulier</div><div class="watch-detail">Marché calme. Surveille tes alertes.</div></div><span class="watch-badge ok">OK</span></div>';
+    : '<div class="watch-item"><div class="watch-icon">✅</div><div class="watch-info"><div class="watch-text">No particular signal</div><div class="watch-detail">Calm market. Monitor your alerts.</div></div><span class="watch-badge ok">OK</span></div>';
 
-  // Portfolio breakdown
   renderDashPortfolio(total);
-
-  // Opportunities
   renderDashOpportunities(fgVal, dom, mcapChange);
-
-  document.getElementById('dash-sub').textContent = 'Mis à jour à ' + now.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
+  document.getElementById('dash-sub').textContent = 'Updated at ' + now.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' });
 }
 
 function renderDashPortfolio(total) {
   const el = document.getElementById('dash-portfolio-breakdown');
-  if (!portfolio.length) { el.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted);font-size:13px">Ajoute des assets pour voir l\'analyse</div>'; return; }
+  if (!portfolio.length) { el.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted);font-size:13px">Add assets to see analysis</div>'; return; }
   const assets = portfolio.map(a => {
     const p = a.type === 'crypto' ? (cryptoPrices[a.symbol.toLowerCase()] || cryptoPrices[a.id] || a.buyPrice) : (stockPrices[a.symbol] || a.buyPrice);
     return { ...a, cp: p, val: p * a.qty, pnl: ((p - a.buyPrice) / a.buyPrice * 100) };
@@ -1397,21 +1482,20 @@ function renderDashPortfolio(total) {
 function renderDashOpportunities(fgVal, dom, mcapChange) {
   const el = document.getElementById('dash-opportunities');
   const ops = [];
-  if (fgVal !== null && fgVal <= 30) ops.push({ icon:'💎', text:'Zone Fear — opportunité d\'accumulation', detail:`Fear & Greed à ${fgVal}. Historiquement bon point d'entrée.`, badge:'info', badgeTxt:'DCA' });
-  if (dom !== null && dom < 48) ops.push({ icon:'🌊', text:'Altseason possible — ETH, SOL, BNB', detail:`BTC dominance à ${dom.toFixed(1)}% = rotation vers les alts.`, badge:'info', badgeTxt:'Alts' });
-  if (mcapChange !== null && mcapChange < -5) ops.push({ icon:'🛒', text:`Correction ${mcapChange.toFixed(1)}% — entrée potentielle`, detail:'Marché en correction. DCA progressif plutôt qu\'en one-shot.', badge:'info', badgeTxt:'Entrée' });
+  if (fgVal !== null && fgVal <= 30) ops.push({ icon:'💎', text:'Fear zone — accumulation opportunity', detail:`Fear & Greed at ${fgVal}. Historically a good entry point.`, badge:'info', badgeTxt:'DCA' });
+  if (dom !== null && dom < 48) ops.push({ icon:'🌊', text:'Altseason possible — ETH, SOL, BNB', detail:`BTC dominance at ${dom.toFixed(1)}% = rotation into alts.`, badge:'info', badgeTxt:'Alts' });
+  if (mcapChange !== null && mcapChange < -5) ops.push({ icon:'🛒', text:`Correction ${mcapChange.toFixed(1)}% — potential entry`, detail:'Market in correction. DCA gradually rather than all at once.', badge:'info', badgeTxt:'Entry' });
   portfolio.forEach(a => {
     const cp = a.type === 'crypto' ? (cryptoPrices[a.symbol.toLowerCase()] || cryptoPrices[a.id] || null) : (stockPrices[a.symbol] || null);
     if (cp === null) return;
     const pnlPct = (cp - a.buyPrice) / a.buyPrice * 100;
-    if (pnlPct >= 50) ops.push({ icon:'💰', text:`${a.symbol.toUpperCase()} +${pnlPct.toFixed(0)}% — sécuriser des profits ?`, detail:`Acheté $${fp(a.buyPrice)}, maintenant $${fp(cp)}`, badge:'warn', badgeTxt:'Profits' });
+    if (pnlPct >= 50) ops.push({ icon:'💰', text:`${a.symbol.toUpperCase()} +${pnlPct.toFixed(0)}% — secure profits?`, detail:`Bought $${fp(a.buyPrice)}, now $${fp(cp)}`, badge:'warn', badgeTxt:'Profits' });
   });
-  if (!ops.length) ops.push({ icon:'👀', text:'Marché neutre — pas de signal clair', detail:'Attends Fear & Greed extrême ou une correction pour agir.', badge:'info', badgeTxt:'Attente' });
+  if (!ops.length) ops.push({ icon:'👀', text:'Neutral market — no clear signal', detail:'Wait for an extreme Fear & Greed or a correction to act.', badge:'info', badgeTxt:'Wait' });
   el.innerHTML = ops.map(o => `<div class="watch-item"><div class="watch-icon">${o.icon}</div><div class="watch-info"><div class="watch-text">${o.text}</div><div class="watch-detail">${o.detail}</div></div><span class="watch-badge ${o.badge}">${o.badgeTxt}</span></div>`).join('');
 }
 
 // CHART
-let portfolioHistory = [];
 function getHistoryKey() { return 'vault_history_' + (portfolios[currentPortfolioIdx]?.id || '0'); }
 function recordPortfolioSnapshot() {
   const total = portfolio.reduce((s, a) => {
@@ -1447,13 +1531,13 @@ function renderChart() {
     if (currentTotal === 0) {
       if (portfolioChart) { portfolioChart.destroy(); portfolioChart = null; }
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = '#9ca3af'; ctx.font = '13px Inter'; ctx.textAlign = 'center';
+      ctx.fillStyle = '#9ca3af'; ctx.font = '13px sans-serif'; ctx.textAlign = 'center';
       ctx.fillText('Add assets to see your chart', canvas.width/2, canvas.height/2);
       return;
     }
     const cost = portfolio.reduce((s, a) => s + a.buyPrice * a.qty, 0);
     history = [];
-    for (i = days; i >= 0; i--) {
+    for (let i = days; i >= 0; i--) {
       const t = now - i * 24 * 60 * 60 * 1000;
       const progress = (days - i) / days;
       const trend = cost + (currentTotal - cost) * progress;
@@ -1464,7 +1548,7 @@ function renderChart() {
   }
   const labels = history.map(p => {
     const d = new Date(p.t);
-    return chartPeriod === '7d' ? d.toLocaleDateString('fr-FR', { weekday:'short', day:'numeric' }) : d.toLocaleDateString('fr-FR', { day:'numeric', month:'short' });
+    return chartPeriod === '7d' ? d.toLocaleDateString('en-US', { weekday:'short', day:'numeric' }) : d.toLocaleDateString('en-US', { day:'numeric', month:'short' });
   });
   const values = history.map(p => p.v);
   const first = values[0], last = values[values.length-1];
@@ -1477,10 +1561,10 @@ function renderChart() {
     options: {
       responsive: true, maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
-      plugins: { legend: { display: false }, tooltip: { backgroundColor: '#0f1117', titleColor: '#9ca3af', bodyColor: '#fff', bodyFont: { family: 'DM Mono', size: 13, weight: '600' }, callbacks: { label: ctx => '$' + fp(ctx.raw) } } },
+      plugins: { legend: { display: false }, tooltip: { backgroundColor: '#0f1117', titleColor: '#9ca3af', bodyColor: '#fff', bodyFont: { family: 'monospace', size: 13, weight: '600' }, callbacks: { label: ctx => '$' + fp(ctx.raw) } } },
       scales: {
-        x: { grid: { display: false }, ticks: { font: { family: 'Inter', size: 10 }, color: '#718096', maxTicksLimit: 6 } },
-        y: { grid: { color: '#f0f2f7' }, ticks: { font: { family: 'DM Mono', size: 10 }, color: '#718096', callback: v => '$' + (v >= 1000 ? (v/1000).toFixed(1)+'k' : v.toFixed(0)) } }
+        x: { grid: { display: false }, ticks: { font: { size: 10 }, color: '#718096', maxTicksLimit: 6 } },
+        y: { grid: { color: '#1c2128' }, ticks: { font: { size: 10 }, color: '#718096', callback: v => '$' + (v >= 1000 ? (v/1000).toFixed(1)+'k' : v.toFixed(0)) } }
       }
     }
   });
@@ -1488,7 +1572,7 @@ function renderChart() {
 
 // NEWS
 async function loadNews() {
-  document.getElementById('news-list').innerHTML = '<div class="loading"><div class="spinner"></div><p>Chargement...</p></div>';
+  document.getElementById('news-list').innerHTML = '<div class="loading"><div class="spinner"></div><p>Loading...</p></div>';
   try {
     const res = await fetch('https://min-api.cryptocompare.com/data/v2/news/?lang=EN&sortOrder=latest');
     if (!res.ok) throw new Error('fetch failed');
@@ -1498,12 +1582,12 @@ async function loadNews() {
       const cats = (n.categories || '').toLowerCase();
       const tag = cats.includes('market') || cats.includes('trading') ? 'market' : 'crypto';
       const mins = Math.floor((Date.now()/1000 - n.published_on) / 60);
-      const timeStr = mins < 60 ? `${mins}min` : mins < 1440 ? `${Math.floor(mins/60)}h` : `${Math.floor(mins/1440)}j`;
+      const timeStr = mins < 60 ? `${mins}min` : mins < 1440 ? `${Math.floor(mins/60)}h` : `${Math.floor(mins/1440)}d`;
       const related = (n.tags||'').toLowerCase().split('|').concat(n.title.toLowerCase().split(' ')).filter(t => t.length > 2);
       return { title: n.title, source: n.source_info?.name || n.source, time: timeStr + ' ago', tag, url: n.url, related };
     });
     renderNews();
-    document.getElementById('news-sub').textContent = `${allNews.length} articles · ${new Date().toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' })}`;
+    document.getElementById('news-sub').textContent = `${allNews.length} articles · ${new Date().toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' })}`;
   } catch(e) {
     try {
       const res2 = await fetch('https://api.coingecko.com/api/v3/news');
@@ -1512,7 +1596,7 @@ async function loadNews() {
       allNews = (data2.data || []).slice(0, 30).map(n => ({ title: n.title, source: n.news_site, time: 'recent', tag: 'crypto', url: n.url, related: [n.title.toLowerCase()] }));
       renderNews();
     } catch(e2) {
-      document.getElementById('news-list').innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">❌ Impossible de charger les news. Vérifie ta connexion.</div>';
+      document.getElementById('news-list').innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">❌ Could not load news. Check your connection.</div>';
     }
   }
 }
@@ -1536,7 +1620,7 @@ function getAssetNews(symbol, name) {
   return allNews.filter(n => n.related.some(r => q.some(s => r.includes(s) || s.includes(r)))).slice(0, 3);
 }
 
-// PRICE ALERTS
+// ALERTS
 function handleAlertSearch() {
   const q = document.getElementById('alert-asset-input').value.toLowerCase().trim();
   const list = document.getElementById('alert-autocomplete');
@@ -1572,7 +1656,7 @@ function addAlert() {
   renderAlerts();
   document.getElementById('alert-asset-input').value = ''; document.getElementById('alert-price').value = '';
   alertSelectedAsset = null;
-  showToast('Alerte ajoutée 🔔');
+  showToast('Alert added 🔔');
   if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
 }
 function deleteAlertByIdx(btn) {
@@ -1630,9 +1714,9 @@ function selectSmartType(type, el) {
   selectedSmartType = type;
   document.querySelectorAll('.smart-type-btn').forEach(b => b.classList.remove('selected'));
   el.classList.add('selected');
-  const labels = { drawdown:'Seuil de perte (%)', dominance:'BTC Dominance seuil (%)', concentration:'Concentration max (%)', pnl:'P&L cible (%)', feargreed:'Fear & Greed seuil (0-100)' };
+  const labels = { drawdown:'Loss threshold (%)', dominance:'BTC Dominance threshold (%)', concentration:'Max concentration (%)', pnl:'Target P&L (%)', feargreed:'Fear & Greed threshold (0-100)' };
   const defaults = { drawdown:'20', dominance:'60', concentration:'50', pnl:'50', feargreed:'20' };
-  document.getElementById('smart-threshold-label').textContent = labels[type] || 'Seuil';
+  document.getElementById('smart-threshold-label').textContent = labels[type] || 'Threshold';
   document.getElementById('smart-threshold').value = defaults[type] || '20';
   document.getElementById('smart-asset-input').closest('.form-group').style.display = ['dominance','feargreed'].includes(type)?'none':'block';
 }
@@ -1644,7 +1728,7 @@ function handleSmartAssetSearch() {
     ...cryptoData.filter(c => c.name.toLowerCase().includes(q) || c.symbol.toLowerCase().includes(q)).slice(0, 4).map(c => ({ label:c.symbol.toUpperCase(), name:c.name, type:'crypto', id:c.id, symbol:c.symbol })),
     ...stocksData.filter(s => s.name.toLowerCase().includes(q) || s.symbol.toLowerCase().includes(q)).slice(0, 3).map(s => ({ label:s.symbol, name:s.name, type:'stock', id:s.symbol, symbol:s.symbol }))
   ].slice(0, 5);
-  list.innerHTML = res.length ? res.map(r => `<div class="autocomplete-item" onclick="selectSmartAsset('${r.id}','${r.type}','${r.symbol}','${r.name}')"><span class="ac-symbol">${r.label}</span><span class="ac-name">${r.name}</span></div>`).join('') : '<div class="autocomplete-item" style="color:var(--muted)">Aucun résultat</div>';
+  list.innerHTML = res.length ? res.map(r => `<div class="autocomplete-item" onclick="selectSmartAsset('${r.id}','${r.type}','${r.symbol}','${r.name}')"><span class="ac-symbol">${r.label}</span><span class="ac-name">${r.name}</span></div>`).join('') : '<div class="autocomplete-item" style="color:var(--muted)">No results</div>';
   list.classList.add('open');
 }
 function selectSmartAsset(id, type, symbol, name) {
@@ -1654,12 +1738,12 @@ function selectSmartAsset(id, type, symbol, name) {
 }
 function addSmartAlert() {
   const threshold = parseFloat(document.getElementById('smart-threshold').value);
-  if (isNaN(threshold)) { showToast('Entre un seuil valide'); return; }
+  if (isNaN(threshold)) { showToast('Enter a valid threshold'); return; }
   const typeLabels = { drawdown:'Drawdown', dominance:'BTC Dominance', concentration:'Concentration', pnl:'P&L', feargreed:'Fear & Greed' };
   const typeIcons = { drawdown:'📉', dominance:'🌐', concentration:'⚖️', pnl:'💸', feargreed:'😱' };
   smartAlerts.push({ id:Date.now(), type:selectedSmartType, label:typeLabels[selectedSmartType], icon:typeIcons[selectedSmartType], asset:smartSelectedAsset, threshold, condition:document.getElementById('smart-condition').value, triggered:false });
   localStorage.setItem('vault_smart_alerts', JSON.stringify(smartAlerts));
-  renderSmartAlerts(); showToast('Alerte intelligente créée 🧠');
+  renderSmartAlerts(); showToast('Smart alert created 🧠');
   document.getElementById('smart-asset-input').value = ''; smartSelectedAsset = null;
 }
 function deleteSmartAlert(btn) {
@@ -1678,14 +1762,14 @@ function renderSmartAlerts() {
     <div class="alert-card ${a.triggered?'alert-triggered':''}">
       <div class="alert-icon" style="background:var(--accent-light);color:var(--accent);font-size:16px">${a.icon}</div>
       <div class="alert-info">
-        <div class="alert-name">${a.label}${a.asset?' — '+a.asset.symbol.toUpperCase():' (global)'} <span style="font-size:10px;padding:2px 7px;border-radius:6px;background:${a.triggered?'#dcfce7':'var(--accent-light)'};color:${a.triggered?'#15803d':'var(--accent)'};font-weight:700;margin-left:4px">${a.triggered?'✓ Déclenché':'Actif'}</span></div>
-        <div class="alert-condition">${a.condition==='above'?'↑ Dépasse':'↓ Descend sous'} ${a.threshold}%</div>
+        <div class="alert-name">${a.label}${a.asset?' — '+a.asset.symbol.toUpperCase():' (global)'} <span style="font-size:10px;padding:2px 7px;border-radius:6px;background:${a.triggered?'#dcfce7':'var(--accent-light)'};color:${a.triggered?'#15803d':'var(--accent)'};font-weight:700;margin-left:4px">${a.triggered?'✓ Triggered':'Active'}</span></div>
+        <div class="alert-condition">${a.condition==='above'?'↑ Above':'↓ Below'} ${a.threshold}%</div>
       </div>
       <button class="alert-delete" data-idx="${idx}" onclick="deleteSmartAlert(this)">×</button>
     </div>`).join('');
 }
 function checkSmartAlerts() {
-  changed = false;
+  let changed = false;
   smartAlerts.forEach(a => {
     if (a.triggered) return;
     let val = null;
@@ -1713,13 +1797,13 @@ function checkSmartAlerts() {
 async function connectMetaMask() {
   const btn = document.getElementById('metamask-btn');
   const status = document.getElementById('metamask-status');
-  if (!window.ethereum) { status.innerHTML = '<span style="color:var(--red)">❌ MetaMask non détecté</span>'; return; }
-  btn.textContent = '⏳ Connexion...'; btn.disabled = true;
+  if (!window.ethereum) { status.innerHTML = '<span style="color:var(--red)">❌ MetaMask not detected</span>'; return; }
+  btn.textContent = '⏳ Connecting...'; btn.disabled = true;
   try {
     const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
     const address = accounts[0];
     const short = address.substring(0,6) + '...' + address.slice(-4);
-    status.innerHTML = `<span style="color:var(--accent)">🦊 ${short} — scan en cours...</span>`;
+    status.innerHTML = `<span style="color:var(--accent)">🦊 ${short} — scanning...</span>`;
     let imported = 0;
     const ethHex = await window.ethereum.request({ method: 'eth_getBalance', params: [address, 'latest'] });
     const ethBal = parseInt(ethHex, 16) / 1e18;
@@ -1728,11 +1812,11 @@ async function connectMetaMask() {
       imported++;
     }
     await savePortfolioToCloud(); renderPortfolio();
-    btn.className = 'metamask-btn connected'; btn.textContent = `🦊 ${short} — ${imported} crypto(s) importée(s)`; btn.disabled = false;
-    status.innerHTML = `<span style="color:var(--green)">✅ ${imported} asset(s) ajouté(s) !</span>`;
+    btn.className = 'metamask-btn connected'; btn.textContent = `🦊 ${short} — ${imported} crypto(s) imported`; btn.disabled = false;
+    status.innerHTML = `<span style="color:var(--green)">✅ ${imported} asset(s) added!</span>`;
   } catch(e) {
-    btn.textContent = '🦊 Connecter MetaMask'; btn.disabled = false;
-    status.innerHTML = `<span style="color:var(--red)">❌ ${e.code===4001?'Connexion refusée':e.message}</span>`;
+    btn.textContent = '🦊 Connect MetaMask'; btn.disabled = false;
+    status.innerHTML = `<span style="color:var(--red)">❌ ${e.code===4001?'Connection refused':e.message}</span>`;
   }
 }
 
@@ -1763,43 +1847,24 @@ function showToast(msg) {
   setTimeout(() => t.classList.remove('show'), 2500);
 }
 
-// INIT
-document.getElementById('auth-password').addEventListener('keydown', e => { if (e.key==='Enter') handleAuth(); });
-document.getElementById('auth-email').addEventListener('keydown', e => { if (e.key==='Enter') document.getElementById('auth-password').focus(); });
-setTimeout(() => {
-  if (!supabaseReady) initPortfolios();
-  renderAlerts(); renderSmartAlerts();
-  checkAlerts();
-}, 500);
-setInterval(checkAlerts, 30000);
-setInterval(() => { if (document.getElementById('page-dashboard')?.classList.contains('active')) renderDashboard(); }, 300000);
-
 // ============================================================
 // FACE ID / TOUCH ID — WebAuthn
 // ============================================================
 const BIOMETRIC_KEY = 'vault_biometric_credential';
 
 async function checkBiometricSupport() {
-  // Only show on login tab, not signup
   if (authMode !== 'login') return;
   const section = document.getElementById('biometric-section');
   if (!section) return;
-
-  // Check WebAuthn support
   if (!window.PublicKeyCredential) return;
-
-  // Check if platform authenticator available (Face ID / Touch ID)
   try {
     const available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
     if (!available) return;
   } catch(e) { return; }
-
-  // Check if user has a saved credential
   const saved = localStorage.getItem(BIOMETRIC_KEY);
   if (saved) {
     section.style.display = 'block';
     const btn = document.getElementById('biometric-btn');
-    // Detect iOS for Face ID label
     const isIOS = /iPhone|iPad/.test(navigator.userAgent);
     const isMac = /Mac/.test(navigator.userAgent) && navigator.maxTouchPoints > 0;
     const label = (isIOS || isMac) ? 'Sign in with Face ID' : 'Sign in with Touch ID / Biometrics';
@@ -1812,234 +1877,100 @@ async function registerBiometric(email) {
   try {
     const available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
     if (!available) return false;
-
-    // Create credential
     const challenge = new Uint8Array(32);
     crypto.getRandomValues(challenge);
     const userId = new TextEncoder().encode(email);
-
     const credential = await navigator.credentials.create({
       publicKey: {
         challenge,
         rp: { name: 'Vault', id: window.location.hostname === 'localhost' ? 'localhost' : window.location.hostname },
         user: { id: userId, name: email, displayName: email },
         pubKeyCredParams: [{ alg: -7, type: 'public-key' }, { alg: -257, type: 'public-key' }],
-        authenticatorSelection: {
-          authenticatorAttachment: 'platform',
-          userVerification: 'required',
-          residentKey: 'preferred'
-        },
-        timeout: 60000,
-        attestation: 'none'
+        authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required', residentKey: 'preferred' },
+        timeout: 60000, attestation: 'none'
       }
     });
-
     if (!credential) return false;
-
-    // Save credential ID and email for future login
-    const credData = {
-      id: credential.id,
-      rawId: Array.from(new Uint8Array(credential.rawId)),
-      email: email,
-      registered: new Date().toISOString()
-    };
+    const credData = { id: credential.id, rawId: Array.from(new Uint8Array(credential.rawId)), email, registered: new Date().toISOString() };
     localStorage.setItem(BIOMETRIC_KEY, JSON.stringify(credData));
-
-    // Show the biometric button
     document.getElementById('biometric-section').style.display = 'block';
-    showToast('Face ID activé pour les prochaines connexions ✓');
+    showToast('Face ID enabled ✓');
     return true;
-  } catch(e) {
-    console.warn('Biometric register error:', e);
-    return false;
-  }
+  } catch(e) { console.warn('Biometric register error:', e); return false; }
 }
 
 async function loginWithBiometric() {
   const btn = document.getElementById('biometric-btn');
   const savedRaw = localStorage.getItem(BIOMETRIC_KEY);
-  if (!savedRaw) { showToast('Aucune empreinte enregistrée'); return; }
-
+  if (!savedRaw) { showToast('No biometric registered'); return; }
   const saved = JSON.parse(savedRaw);
-  btn.style.opacity = '0.6';
-  btn.style.pointerEvents = 'none';
-
+  btn.style.opacity = '0.6'; btn.style.pointerEvents = 'none';
   try {
     const challenge = new Uint8Array(32);
     crypto.getRandomValues(challenge);
-
-    // Convert saved rawId back to Uint8Array
-    const allowCred = {
-      id: new Uint8Array(saved.rawId).buffer,
-      type: 'public-key',
-      transports: ['internal']
-    };
-
+    const allowCred = { id: new Uint8Array(saved.rawId).buffer, type: 'public-key', transports: ['internal'] };
     const assertion = await navigator.credentials.get({
-      publicKey: {
-        challenge,
-        allowCredentials: [allowCred],
-        userVerification: 'required',
-        timeout: 60000
-      }
+      publicKey: { challenge, allowCredentials: [allowCred], userVerification: 'required', timeout: 60000 }
     });
-
     if (!assertion) throw new Error('No assertion returned');
+    document.getElementById('auth-email').value = saved.email;
+    setAuthError('Face ID verified ✓ Connecting...', true);
 
-    // Biometric verified — pre-fill email and auto-login
-    const emailInput = document.getElementById('auth-email');
-    emailInput.value = saved.email;
-
-    // Show loading state
-    document.getElementById('auth-error').style.color = 'var(--green)';
-    document.getElementById('auth-error').textContent = 'Face ID vérifié ✓ Connexion en cours...';
-
-    // Supabase session restore with auto-refresh
     const sessionKey = 'vault_biometric_session';
     const savedSession = localStorage.getItem(sessionKey);
-
-    if (savedSession && supabaseReady && sb) {
+    if (savedSession && sbReady && sb) {
       try {
         const session = JSON.parse(savedSession);
-
-        // 1. Try to restore the session (works if access_token still valid ~1h)
-        const { data, error } = await sb.auth.setSession({
-          access_token: session.access_token,
-          refresh_token: session.refresh_token
-        });
-
+        const { data, error } = await sb.auth.setSession({ access_token: session.access_token, refresh_token: session.refresh_token });
         if (!error && data.session) {
-          // Save the refreshed tokens (Supabase auto-refreshes via refresh_token)
-          localStorage.setItem(sessionKey, JSON.stringify({
-            access_token: data.session.access_token,
-            refresh_token: data.session.refresh_token,
-            email: saved.email
-          }));
-          document.getElementById('auth-error').textContent = '';
-          return; // onAuthStateChange → showApp()
+          localStorage.setItem(sessionKey, JSON.stringify({ access_token: data.session.access_token, refresh_token: data.session.refresh_token, email: saved.email }));
+          clearAuthError();
+          return;
         }
-
-        // 2. Session truly expired — clear it, explain clearly
-        console.warn('Biometric session expired:', error?.message);
         localStorage.removeItem(sessionKey);
-
-        document.getElementById('auth-error').style.color = 'var(--red)';
-        document.getElementById('auth-error').textContent = 'Session expirée — reconnecte-toi une fois avec ton mot de passe.';
-
-        // Pre-fill email so user just needs to type password
+        setAuthError('Session expired — sign in with password once.');
         document.getElementById('auth-email').value = saved.email;
-        document.getElementById('auth-password').value = '';
         document.getElementById('auth-password').focus();
-
       } catch(e) {
-        console.warn('Biometric session error:', e);
         localStorage.removeItem(sessionKey);
-        document.getElementById('auth-error').style.color = 'var(--red)';
-        document.getElementById('auth-error').textContent = 'Session expirée — entre ton mot de passe.';
+        setAuthError('Session expired — enter your password.');
         document.getElementById('auth-email').value = saved.email;
         document.getElementById('auth-password').focus();
       }
     } else {
-      // No saved session at all — pre-fill email
-      document.getElementById('auth-error').textContent = '';
+      clearAuthError();
       document.getElementById('auth-email').value = saved.email;
       document.getElementById('auth-password').focus();
-      showToast('Email pré-rempli — entre ton mot de passe 🔑');
+      showToast('Email pre-filled — enter your password 🔑');
     }
-
   } catch(e) {
-    if (e.name === 'NotAllowedError') {
-      document.getElementById('auth-error').style.color = 'var(--red)';
-      document.getElementById('auth-error').textContent = 'Face ID annulé ou non reconnu';
-    } else {
-      console.warn('Biometric login error:', e);
-    }
+    if (e.name === 'NotAllowedError') setAuthError('Face ID cancelled or not recognized.');
+    else console.warn('Biometric login error:', e);
   } finally {
-    btn.style.opacity = '1';
-    btn.style.pointerEvents = '';
+    btn.style.opacity = '1'; btn.style.pointerEvents = '';
   }
 }
-
-// Hook into successful login to offer biometric registration
-const _origShowApp = showApp;
-window.showApp = async function() {
-  _origShowApp();
-  // Offer to register biometric if not already done and platform supports it
-  const alreadyRegistered = localStorage.getItem(BIOMETRIC_KEY);
-  const dismissed = localStorage.getItem('vault_biometric_dismissed');
-  if (!alreadyRegistered && !dismissed && window.PublicKeyCredential) {
-    try {
-      const available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
-      if (available && currentUser) {
-        setTimeout(() => offerBiometricSetup(), 1500);
-      }
-    } catch(e) {}
-  }
-};
 
 function offerBiometricSetup() {
   const isIOS = /iPhone|iPad/.test(navigator.userAgent);
   const isMac = /Mac/.test(navigator.userAgent) && navigator.maxTouchPoints > 0;
   const name = (isIOS || isMac) ? 'Face ID' : 'Touch ID / Biometrics';
-
-  // Show a non-intrusive toast-style prompt
   const toast = document.getElementById('toast');
-  toast.innerHTML = `Activer ${name} ? <button onclick="setupBiometric()" style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:700;cursor:pointer;margin-left:8px">Oui</button><button onclick="dismissBiometric()" style="background:none;color:#aaa;border:none;font-size:12px;cursor:pointer;margin-left:4px">Non</button>`;
+  toast.innerHTML = `Enable ${name}? <button onclick="setupBiometric()" style="background:var(--accent);color:#000;border:none;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:700;cursor:pointer;margin-left:8px">Yes</button><button onclick="dismissBiometric()" style="background:none;color:#aaa;border:none;font-size:12px;cursor:pointer;margin-left:4px">No</button>`;
   toast.style.whiteSpace = 'nowrap';
   toast.classList.add('show');
-  // Don't auto-hide this one
 }
-
 async function setupBiometric() {
   const toast = document.getElementById('toast');
-  toast.classList.remove('show');
-  toast.innerHTML = '';
-  if (currentUser) {
-    const ok = await registerBiometric(currentUser.email);
-    if (!ok) showToast('Face ID non disponible sur cet appareil');
-  }
+  toast.classList.remove('show'); toast.innerHTML = '';
+  if (currentUser) { const ok = await registerBiometric(currentUser.email); if (!ok) showToast('Face ID not available on this device'); }
 }
-
 function dismissBiometric() {
   const toast = document.getElementById('toast');
-  toast.classList.remove('show');
-  toast.innerHTML = '';
+  toast.classList.remove('show'); toast.innerHTML = '';
   localStorage.setItem('vault_biometric_dismissed', '1');
 }
 
-// Remove biometric on logout
-const _origHandleLogout = handleLogout;
-window.handleLogout = async function() {
-  // Keep biometric credential — user might want to use it next time
-  // But clear the session
-  localStorage.removeItem('vault_biometric_session');
-  await _origHandleLogout();
-};
-
-// Save session after successful Supabase auth for biometric reuse
-if (supabaseReady && sb) {
-  sb.auth.onAuthStateChange((event, session) => {
-    // Mise à jour du token à chaque connexion ET à chaque refresh automatique
-    if (session && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
-      const bioCred = localStorage.getItem(BIOMETRIC_KEY);
-      if (bioCred) {
-        // Sauvegarder les nouveaux tokens fraîchement émis
-        localStorage.setItem('vault_biometric_session', JSON.stringify({
-          access_token: session.access_token,
-          refresh_token: session.refresh_token,
-          email: session.user?.email || '',
-          saved_at: Date.now()
-        }));
-      }
-    }
-    // Nettoyer si déconnexion
-    if (event === 'SIGNED_OUT') {
-      localStorage.removeItem('vault_biometric_session');
-    }
-  });
-}
-
-// Add option to manage Face ID in Settings
 function addBiometricSetting() {
   const settingsCard = document.querySelector('#page-settings .settings-card');
   if (!settingsCard || !window.PublicKeyCredential) return;
@@ -2050,47 +1981,60 @@ function addBiometricSetting() {
     const name = (isIOS || isMac) ? 'Face ID' : 'Touch ID';
     const registered = !!localStorage.getItem(BIOMETRIC_KEY);
     const div = document.createElement('div');
-    div.className = 'settings-item';
-    div.id = 'biometric-setting';
-    div.innerHTML = `<div><h4>${name}</h4><p>${registered ? 'Activé — connexion biométrique' : 'Non configuré'}</p></div>
-      <button onclick="toggleBiometricSetting()" style="padding:7px 14px;background:${registered?'var(--red-light)':'var(--accent-light)'};color:${registered?'var(--red)':'var(--accent)'};border:1.5px solid ${registered?'#fed7d7':'#c7d2fe'};border-radius:8px;cursor:pointer;font-family:'Syne',sans-serif;font-size:12px;font-weight:700">${registered ? 'Désactiver' : 'Activer'}</button>`;
+    div.className = 'settings-item'; div.id = 'biometric-setting';
+    div.innerHTML = `<div><h4>${name}</h4><p>${registered ? 'Enabled — biometric login' : 'Not configured'}</p></div>
+      <button onclick="toggleBiometricSetting()" style="padding:7px 14px;background:${registered?'var(--red-light)':'var(--accent-light)'};color:${registered?'var(--red)':'var(--accent)'};border:1.5px solid ${registered?'rgba(248,81,73,.3)':'rgba(201,168,76,.3)'};border-radius:8px;cursor:pointer;font-family:'Syne',sans-serif;font-size:12px;font-weight:700">${registered ? 'Disable' : 'Enable'}</button>`;
     settingsCard.appendChild(div);
   }).catch(() => {});
 }
-
 async function toggleBiometricSetting() {
   const registered = !!localStorage.getItem(BIOMETRIC_KEY);
   if (registered) {
-    if (confirm('Désactiver Face ID / Touch ID ?')) {
-      localStorage.removeItem(BIOMETRIC_KEY);
-      localStorage.removeItem('vault_biometric_dismissed');
-      showToast('Face ID désactivé');
-      const el = document.getElementById('biometric-setting');
-      if (el) el.remove();
+    if (confirm('Disable Face ID / Touch ID?')) {
+      localStorage.removeItem(BIOMETRIC_KEY); localStorage.removeItem('vault_biometric_dismissed');
+      showToast('Face ID disabled');
+      const el = document.getElementById('biometric-setting'); if (el) el.remove();
     }
   } else {
-    if (currentUser) {
-      const ok = await registerBiometric(currentUser.email);
-      if (ok) { document.getElementById('biometric-setting')?.remove(); addBiometricSetting(); }
-      else showToast('Face ID non disponible');
-    }
+    if (currentUser) { const ok = await registerBiometric(currentUser.email); if (ok) { document.getElementById('biometric-setting')?.remove(); addBiometricSetting(); } else showToast('Face ID not available'); }
   }
 }
 
-// Init on page load
+// ============================================================
+// INIT — wait for Supabase SDK to load, then initialize
+// ============================================================
 document.addEventListener('DOMContentLoaded', () => {
+  // Wait for Supabase CDN script to be ready
+  const waitForSupabase = () => {
+    if (window.supabase) {
+      initSupabase();
+    } else {
+      // SDK not loaded yet — wait up to 5s
+      let attempts = 0;
+      const interval = setInterval(() => {
+        attempts++;
+        if (window.supabase) {
+          clearInterval(interval);
+          initSupabase();
+        } else if (attempts >= 25) { // 25 * 200ms = 5s
+          clearInterval(interval);
+          console.warn('Supabase SDK failed to load after 5s, entering demo mode');
+          startDemoMode();
+        }
+      }, 200);
+    }
+  };
+  waitForSupabase();
   checkBiometricSupport();
+  setTimeout(addBiometricSetting, 600);
 });
-// Also check when switching to login tab
-const _origSwitchTab = switchTab;
-window.switchTab = function(mode) {
-  _origSwitchTab(mode);
-  if (mode === 'login') setTimeout(checkBiometricSupport, 50);
-  else document.getElementById('biometric-section').style.display = 'none';
-};
 
-setTimeout(addBiometricSetting, 600);
+document.getElementById('auth-password').addEventListener('keydown', e => { if (e.key==='Enter') handleAuth(); });
+document.getElementById('auth-email').addEventListener('keydown', e => { if (e.key==='Enter') document.getElementById('auth-password').focus(); });
 
+setTimeout(() => { renderAlerts(); renderSmartAlerts(); checkAlerts(); }, 500);
+setInterval(checkAlerts, 30000);
+setInterval(() => { if (document.getElementById('page-dashboard')?.classList.contains('active')) renderDashboard(); }, 300000);
 </script>
 </body>
 </html>
