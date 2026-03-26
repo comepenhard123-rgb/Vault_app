@@ -1256,7 +1256,7 @@ async function renderDashboard() {
     return fetch(url, { signal: c.signal }).finally(() => clearTimeout(t));
   };
 
-  let gd = null, fgVal = null, fgLabel = null;
+  gd = null, fgVal = null, fgLabel = null;
 
   const [globalRes, fgRes] = await Promise.allSettled([
     ft('https://api.coingecko.com/api/v3/global', 8000).then(r => { if (!r.ok) throw new Error('HTTP '+r.status); return r.json(); }),
@@ -1453,7 +1453,7 @@ function renderChart() {
     }
     const cost = portfolio.reduce((s, a) => s + a.buyPrice * a.qty, 0);
     history = [];
-    for (let i = days; i >= 0; i--) {
+    for (i = days; i >= 0; i--) {
       const t = now - i * 24 * 60 * 60 * 1000;
       const progress = (days - i) / days;
       const trend = cost + (currentTotal - cost) * progress;
@@ -1685,7 +1685,7 @@ function renderSmartAlerts() {
     </div>`).join('');
 }
 function checkSmartAlerts() {
-  let changed = false;
+  changed = false;
   smartAlerts.forEach(a => {
     if (a.triggered) return;
     let val = null;
