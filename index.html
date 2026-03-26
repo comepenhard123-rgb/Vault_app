@@ -42,6 +42,9 @@
   --radius-lg:18px;
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+*::before,*::after{pointer-events:none!important}
+.auth-tab,.auth-btn,.biometric-btn,.nav-item,.filter-btn,.period-btn,.btn-primary,.btn-cancel,.add-btn,.remove-btn,.logout-btn,.news-filter-btn,.smart-tab,.smart-type-btn,.period-btn,.refresh-btn,.user-btn,.portfolio-new-btn,.portfolio-delete-btn,.alert-delete,.metamask-btn{pointer-events:auto!important;position:relative;z-index:5}
+
 html{scroll-behavior:smooth}
 body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh;overflow-x:hidden;position:relative}
 
@@ -50,7 +53,7 @@ body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-he
 
 /* ── AUTH ── */
 #auth-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;position:relative;background:var(--bg);z-index:10}
-#auth-screen::before{content:'';position:absolute;top:-200px;left:50%;transform:translateX(-50%);width:600px;height:600px;background:radial-gradient(circle,rgba(201,168,76,.08) 0%,transparent 70%);pointer-events:none;z-index:-1}
+#auth-screen::before{content:'';position:absolute;top:-200px;left:50%;transform:translateX(-50%);width:600px;height:600px;background:radial-gradient(circle,rgba(201,168,76,.08) 0%,transparent 70%);pointer-events:none!important;z-index:-1}
 .auth-box{background:var(--surface);border:1px solid var(--border2);border-radius:24px;padding:40px 32px;width:100%;max-width:400px;box-shadow:var(--shadow-md),0 0 0 1px rgba(201,168,76,.05);position:relative;z-index:20}
 .auth-logo{font-size:32px;font-weight:800;color:var(--accent);letter-spacing:-1.5px;text-align:center;margin-bottom:4px;text-shadow:0 0 30px rgba(201,168,76,.3)}
 .auth-logo span{color:var(--text3)}
@@ -129,7 +132,7 @@ body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-he
 /* ── PORTFOLIO ── */
 .portfolio-hero{background:linear-gradient(135deg,var(--surface) 0%,var(--surface2) 100%);border-radius:var(--radius-lg);padding:24px;margin-bottom:16px;border:1px solid var(--border2);position:relative;overflow:hidden}
 .portfolio-hero::before{content:'';position:absolute;top:-60px;right:-60px;width:200px;height:200px;background:radial-gradient(circle,rgba(201,168,76,.08) 0%,transparent 70%);pointer-events:none}
-.portfolio-hero::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(201,168,76,.3),transparent)}
+.portfolio-hero::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(201,168,76,.3),transparent);pointer-events:none}
 .portfolio-label{font-size:10px;font-weight:700;opacity:.6;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;color:var(--text2)}
 .portfolio-total{font-size:38px;font-weight:800;letter-spacing:-1.5px;font-family:'JetBrains Mono',monospace;color:var(--text);background:linear-gradient(135deg,var(--text) 0%,var(--accent2) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .portfolio-pnl{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
@@ -269,7 +272,7 @@ input:checked+.toggle-slider:before{transform:translateX(18px);background:#000}
 
 /* ── DASHBOARD ── */
 .dashboard-hero{background:var(--surface);border-radius:var(--radius-lg);padding:20px;margin-bottom:16px;border:1px solid var(--border);position:relative;overflow:hidden}
-.dashboard-hero::before{content:'';position:absolute;top:-40px;right:-40px;width:160px;height:160px;background:radial-gradient(circle,rgba(201,168,76,.06) 0%,transparent 70%)}
+.dashboard-hero::before{content:'';position:absolute;top:-40px;right:-40px;width:160px;height:160px;background:radial-gradient(circle,rgba(201,168,76,.06) 0%,transparent 70%);pointer-events:none;z-index:0}
 .dashboard-date{font-size:10px;opacity:.5;font-weight:700;text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;color:var(--text)}
 .dashboard-title{font-size:18px;font-weight:800;margin-bottom:4px;color:var(--text);letter-spacing:-.4px}
 .dashboard-sub{font-size:11px;color:var(--text3);letter-spacing:.2px}
