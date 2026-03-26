@@ -8,8 +8,6 @@
 <meta name="apple-mobile-web-app-title" content="Vault">
 <title>Vault</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
 <style>
 :root {
@@ -42,8 +40,6 @@
   --radius-lg:18px;
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-*::before,*::after{pointer-events:none!important}
-.auth-tab,.auth-btn,.biometric-btn,.nav-item,.filter-btn,.period-btn,.btn-primary,.btn-cancel,.add-btn,.remove-btn,.logout-btn,.news-filter-btn,.smart-tab,.smart-type-btn,.period-btn,.refresh-btn,.user-btn,.portfolio-new-btn,.portfolio-delete-btn,.alert-delete,.metamask-btn{pointer-events:auto!important;position:relative;z-index:5}
 
 html{scroll-behavior:smooth}
 body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh;overflow-x:hidden;position:relative}
@@ -53,7 +49,7 @@ body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-he
 
 /* ── AUTH ── */
 #auth-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;position:relative;background:var(--bg);z-index:10}
-#auth-screen::before{content:'';position:absolute;top:-200px;left:50%;transform:translateX(-50%);width:600px;height:600px;background:radial-gradient(circle,rgba(201,168,76,.08) 0%,transparent 70%);pointer-events:none!important;z-index:-1}
+/* auth glow removed */
 .auth-box{background:var(--surface);border:1px solid var(--border2);border-radius:24px;padding:40px 32px;width:100%;max-width:400px;box-shadow:var(--shadow-md),0 0 0 1px rgba(201,168,76,.05);position:relative;z-index:20}
 .auth-logo{font-size:32px;font-weight:800;color:var(--accent);letter-spacing:-1.5px;text-align:center;margin-bottom:4px;text-shadow:0 0 30px rgba(201,168,76,.3)}
 .auth-logo span{color:var(--text3)}
@@ -653,6 +649,8 @@ input:checked+.toggle-slider:before{transform:translateX(18px);background:#000}
 
 <div class="toast" id="toast"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
 // ============================================================
 // CONFIG — Remplace avec tes clés
